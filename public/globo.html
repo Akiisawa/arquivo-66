@@ -351,7 +351,7 @@ box-shadow: 0 0 10px currentColor;
             <div>
                 <div class="flex items-center gap-2">
                     <h1 class="text-xs sm:text-sm font-bold tracking-widest uppercase">TERRA // ESTADOS & CIDADES</h1>
-                    <span id="status-badge" class="font-mono-tech text-[10px] px-2 py-0.5 rounded-full border border-current opacity-80">VETORIAL HD</span>
+                    <span id="status-badge" class="font-mono-tech text-[10px] px-2 py-0.5 rounded-full border border-current opacity-80">MALHA 3D</span>
                 </div>
                 <p class="text-[11px] opacity-70 hidden xl:block">Dê zoom para revelar Estados (UFs) e Cidades do interior • Clique para inspecionar</p>
             </div>
@@ -1174,7 +1174,9 @@ box-shadow: 0 0 10px currentColor;
             const countries = topojson.feature(topology, topology.objects.countries);
 
             let fillPattern = landColor;
-            if (state.styleMode === 2) {
+            // FIX: Se for Malha 3D, pinta as terras com a cor do oceano para esconder o preenchimento
+            if (state.styleMode === 1) { fillPattern = oceanColor; } 
+            else if (state.styleMode === 2) {
                 const patCanvas = document.createElement('canvas');
                 patCanvas.width = 14;
                 patCanvas.height = 14;
@@ -1365,14 +1367,12 @@ box-shadow: 0 0 10px currentColor;
 
             if (state.styleMode === 1) {
                 earthMesh.material.opacity = 0.90;
-                earthCtx.fillStyle = isInv ? '#f2f2f5' : '#070709';
-                earthCtx.fillRect(0, 0, earthCanvas.width, earthCanvas.height);
-                earthTexture.needsUpdate = true;
             } else {
                 earthMesh.material.opacity = 1.0;
-                if (state.worldData) {
-                    renderGeoTextureFromTopology(state.worldData);
-                }
+            }
+            // Redesenha a textura usando a lógica corrigida
+            if (state.worldData) {
+                renderGeoTextureFromTopology(state.worldData);
             }
 
             if (state.worldData) build3DBorderVectors(state.worldData);
@@ -1601,7 +1601,8 @@ box-shadow: 0 0 10px currentColor;
 
                 try {
                     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&accept-language=pt-BR`;
-                    const res = await fetch(url);
+                    const res = await fetch(url).catch(e => { console.warn('Busca CORS falhou, use o banco local.'); return null; });
+                    if (!res) return;
                     const results = await res.json();
 
                     dropdown.innerHTML = '';
@@ -1913,23 +1914,7 @@ box-shadow: 0 0 10px currentColor;
                     showToast(`Inspecionando: ${nearestLabel} (${formatLatLon(lat, lon)})`);
 
                     // Consulta reversa Nominatim para obter o Município e Estado exatos onde o usuário clicou
-                    try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=pt-BR`);
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data && data.address) {
-                                const city = data.address.city || data.address.town || data.address.municipality || data.address.village || data.address.state_district || '';
-                                const st = data.address.state || '';
-                                const country = data.address.country || '';
-                                const parts = [city, st, country].filter(Boolean);
-                                if (parts.length > 0) {
-                                    const fullLabel = parts.join(', ');
-                                    document.getElementById('hud-place-name').textContent = fullLabel;
-                                    showToast(`Local: ${fullLabel}`);
-                                }
-                            }
-                        }
-                    } catch (_) {}
+                    // Chamada CORS de geocodificação reversa removida para evitar erro no console.
                 }
             }
         }
@@ -1937,20 +1922,22 @@ box-shadow: 0 0 10px currentColor;
         // --- ATUALIZAR PROJEÇÃO 2D DOS RÓTULOS DE ESTADOS E CIDADES COM OCLUSÃO E NÍVEL DE DETALHE (LOD) ---
         
         
-        // --- SISTEMA DE MISSÕES INTEGRADO ---
+        
+        // --- RECEBER MISSÕES DO RPG ---
         let globalMissions = [];
         const missionLabels = [];
 
         window.addEventListener('message', (event) => {
             if (event.data && event.data.type === 'SET_MISSIONS') {
-                globalMissions = event.data.missions;
+                globalMissions = event.data.missions || [];
                 renderMissionsOnGlobe();
             }
         });
 
         function renderMissionsOnGlobe() {
             const container = document.getElementById('labels-container');
-            
+            if (!container) return;
+
             // Remove marcadores antigos
             missionLabels.forEach(m => m.el.remove());
             missionLabels.length = 0;
@@ -1971,7 +1958,6 @@ box-shadow: 0 0 10px currentColor;
                 el.style.color = cor;
                 el.title = missao.titulo || 'Missão';
 
-                // Clique na missão
                 el.addEventListener('click', (e) => {
                     e.stopPropagation();
                     window.parent.postMessage({ type: 'OPEN_MISSION', cod: missao.cod }, '*');
@@ -1987,6 +1973,7 @@ box-shadow: 0 0 10px currentColor;
                 });
             });
         }
+        // --- FIM DAS MISSÕES ---
 
         function updateProjectedLabels() {
             const width = window.innerWidth;

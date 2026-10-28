@@ -18,8 +18,320 @@
     <link rel="stylesheet" href="/src/styles/main.css">
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔺</text></svg>">
+
+    <style>
+        /* Animação do Sino de Notificação */
+        #notification-bell {
+            transition: transform 0.2s ease, filter 0.2s ease;
+        }
+        #notification-bell:hover {
+            animation: bell-shake 0.5s ease-in-out infinite;
+            filter: drop-shadow(0 0 5px var(--amber-alert));
+        }
+        #notification-bell:hover i {
+            color: var(--amber-alert);
+            text-shadow: 0 0 8px var(--amber-alert);
+        }
+        
+        @keyframes bell-shake {
+            0% { transform: rotate(0); }
+            25% { transform: rotate(15deg); }
+            50% { transform: rotate(-15deg); }
+            75% { transform: rotate(10deg); }
+            100% { transform: rotate(0); }
+        }
+
+        /* Efeito pulsante no badge quando houver notificações */
+        #notif-badge {
+            animation: badge-pulse 2s infinite;
+        }
+        @keyframes badge-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 51, 51, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(255, 51, 51, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 51, 51, 0); }
+        }
+    </style>
+  
+    <style id="bell-animation">
+        /* Animação do Sino de Notificação */
+        #notification-bell {
+            transition: transform 0.2s ease, filter 0.2s ease;
+        }
+        #notification-bell:hover {
+            animation: bell-shake 0.4s ease-in-out infinite;
+            filter: drop-shadow(0 0 6px var(--amber-alert));
+        }
+        #notification-bell:hover i {
+            color: var(--amber-alert);
+            text-shadow: 0 0 10px var(--amber-alert);
+        }
+        
+        @keyframes bell-shake {
+            0% { transform: rotate(0); }
+            25% { transform: rotate(18deg); }
+            50% { transform: rotate(-18deg); }
+            75% { transform: rotate(10deg); }
+            100% { transform: rotate(0); }
+        }
+
+        /* Efeito pulsante no contador vermelho */
+        #notif-badge {
+            animation: badge-pulse 2s infinite;
+        }
+        @keyframes badge-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 51, 51, 0.8); }
+            70% { box-shadow: 0 0 0 6px rgba(255, 51, 51, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 51, 51, 0); }
+        }
+    </style>
+  
+    
+  
+
+    
+  
+
+    
+  
+
+    <style id="fbi-agents-css">
+        /* --- CARDS ESTILO HOLOGRAMA --- */
+        .fbi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+        }
+        
+        .agent-card-v {
+            background: #06090d;
+            border: 1px solid rgba(0, 170, 255, 0.3); /* Borda azul neon sutil */
+            border-radius: 8px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            transition: 0.3s;
+            overflow: hidden;
+            box-shadow: 0 0 15px rgba(0, 170, 255, 0.05);
+        }
+        .agent-card-v:hover { 
+            border-color: rgba(0, 170, 255, 0.8); 
+            transform: translateY(-4px); 
+            box-shadow: 0 0 25px rgba(0, 170, 255, 0.2); 
+        }
+        
+        /* Área da Foto */
+        .agent-photo-box {
+            width: 100%; height: 220px;
+            background: #05070a;
+            background-image: 
+                linear-gradient(rgba(0, 170, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 170, 255, 0.05) 1px, transparent 1px);
+            background-size: 15px 15px; /* Efeito de grade no fundo */
+            position: relative;
+            border-bottom: 1px solid rgba(0, 170, 255, 0.2);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .agent-photo-box img { 
+            width: 100%; height: 100%; object-fit: cover; 
+            filter: grayscale(80%) contrast(120%); 
+            transition: 0.3s; 
+            z-index: 2;
+        }
+        .agent-card-v:hover .agent-photo-box img { filter: grayscale(0%); transform: scale(1.03); }
+        
+        /* Ícone de Holograma para quem não tem foto */
+        .agent-photo-box .no-photo { 
+            font-size: 4rem; 
+            color: #00aaff; 
+            text-shadow: 0 0 20px rgba(0, 170, 255, 0.5);
+            opacity: 0.8;
+            z-index: 2;
+            animation: hologram-pulse 3s infinite alternate;
+        }
+        @keyframes hologram-pulse {
+            0% { opacity: 0.5; transform: scale(0.95); }
+            100% { opacity: 0.9; transform: scale(1.05); }
+        }
+
+        /* Efeito de Scanline (Linha de escaneamento) */
+        .scanline {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: #00aaff;
+            box-shadow: 0 0 10px #00aaff, 0 0 20px #00aaff;
+            opacity: 0;
+            z-index: 3;
+            pointer-events: none;
+        }
+        .agent-card-v:hover .scanline { animation: scan-anim 1.5s linear infinite; }
+        
+        @keyframes scan-anim {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        /* Badge de Status */
+        .agent-badge-v {
+            position: absolute; top: 10px; right: 10px;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid currentColor;
+            padding: 3px 8px; font-size: 0.65rem; font-weight: bold; font-family: monospace;
+            border-radius: 4px; text-transform: uppercase; 
+            backdrop-filter: blur(4px);
+            z-index: 4;
+        }
+
+        /* Informações */
+        .agent-info-v { padding: 15px; display: flex; flex-direction: column; flex-grow: 1; }
+        
+        .agent-header-v { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .agent-name-v { font-size: 1.2rem; color: #fff; font-weight: bold; text-transform: uppercase; margin: 0; line-height: 1; letter-spacing: 0.5px; }
+        
+        /* Badge ao lado do nome */
+        .agent-name-badge {
+            font-size: 0.55rem; padding: 2px 5px; font-weight: bold;
+            border: 1px solid currentColor; border-radius: 2px;
+            font-family: monospace;
+        }
+        
+        .agent-id-v { font-size: 0.7rem; color: #00aaff; font-family: monospace; margin-bottom: 12px; display: block; }
+        
+        .agent-role-v { 
+            font-size: 0.75rem; color: #a6b7c9; 
+            margin-bottom: 15px; 
+            display: flex; align-items: center; gap: 5px;
+        }
+        .agent-role-v i { color: #5b6f82; }
+        .agent-role-v strong { color: #fff; font-weight: normal; }
+        
+        /* Botões */
+        .agent-actions-v { display: flex; gap: 8px; margin-top: auto; }
+        .btn-card-v { 
+            flex-grow: 1; padding: 8px; font-size: 0.7rem; 
+            background: rgba(28, 38, 48, 0.5); color: #fff; 
+            border: 1px solid #2a3a4a; cursor: pointer; 
+            text-transform: uppercase; font-weight: bold; 
+            transition: 0.2s; text-align: center; border-radius: 4px;
+            font-family: 'Courier Prime', monospace;
+        }
+        .btn-card-v:hover { background: #00aaff; color: #000; border-color: #00aaff; box-shadow: 0 0 10px rgba(0,170,255,0.5); }
+        .btn-edit-v { flex-grow: 0; width: 35px; padding: 8px 0; }
+        
+        .btn-approve-v { 
+            background: rgba(66,255,66,0.1); color: var(--verde-terminal); 
+            border-color: var(--verde-terminal); margin-bottom: 8px; width: 100%;
+        }
+        .btn-approve-v:hover { background: var(--verde-terminal); color: #000; }
+    </style>
+  
 </head>
 <body>
+
+<!-- INJEÇÃO DE AUTENTICAÇÃO INLINE -->
+<script>
+    // 1. Função de Conectar à Sessão
+    window.entrarSessaoExistente = async function() {
+        const input = document.getElementById('input-codigo-sessao');
+        const cod = input ? input.value.toUpperCase().trim() : '';
+        
+        if (!cod) {
+            if (typeof window.mostrarToastSessao === 'function') window.mostrarToastSessao("ERRO: INSIRA UM CÓDIGO.", true);
+            else alert("ERRO: INSIRA UM CÓDIGO.");
+            return;
+        }
+        
+        try {
+            if (!firebase || !firebase.firestore) {
+                alert("Firebase não carregou corretamente.");
+                return;
+            }
+            const db = firebase.firestore();
+            const doc = await db.collection("sessoes").doc(cod).get();
+            
+            if (!doc.exists) {
+                if (typeof window.mostrarToastSessao === 'function') window.mostrarToastSessao("SALA NÃO ENCONTRADA.", true);
+                else alert("SALA NÃO ENCONTRADA.");
+                return;
+            }
+            
+            if (typeof window.iniciarRotinaDeBoot === 'function') {
+                window.iniciarRotinaDeBoot(cod);
+            } else {
+                // Fallback: Se o legacy-app falhou, faz a transição manual
+                window.SESSAO_ATUAL = cod;
+                localStorage.setItem('rpg_sessao_atual', cod);
+                document.getElementById('tela-sessao').style.display = 'none';
+                const intro = document.getElementById('tela-intro');
+                if (intro) intro.style.display = 'flex';
+                setTimeout(() => {
+                    if (intro) intro.style.display = 'none';
+                    document.getElementById('tela-login').style.display = 'flex';
+                    const instrucao = document.getElementById('login-instrucao');
+                    if (instrucao) instrucao.innerText = "SALA: " + cod;
+                }, 3000); // Boot fake se o script principal estiver quebrado
+            }
+        } catch (e) {
+            console.error(e);
+            if (typeof window.mostrarToastSessao === 'function') window.mostrarToastSessao("ERRO AO CONECTAR.", true);
+            else alert("ERRO AO CONECTAR.");
+        }
+    };
+
+    window.confirmarAcesso = function() {
+        window.entrarSessaoExistente();
+    };
+
+    // 2. Auto-Login (Verifica se já tem sessão salva)
+    window.addEventListener('DOMContentLoaded', () => {
+        if (!firebase || !firebase.auth) return;
+
+        firebase.auth().onAuthStateChanged(async (user) => {
+            const telaAuth = document.getElementById('tela-auth');
+            const telaSessao = document.getElementById('tela-sessao');
+
+            if (user) {
+                if (telaAuth) telaAuth.style.display = 'none';
+                
+                // Verifica cache local
+                const savedSession = localStorage.getItem('rpg_sessao_atual');
+                if (savedSession) {
+                    console.log("[AUTO-LOGIN INLINE] Sessão no cache:", savedSession);
+                    if (typeof window.iniciarRotinaDeBoot === 'function') {
+                        window.iniciarRotinaDeBoot(savedSession);
+                    }
+                } else {
+                    // Tenta achar no banco
+                    try {
+                        const db = firebase.firestore();
+                        const snapshot = await db.collection("sessoes").where("ownerUid", "==", user.uid).get();
+                        if (!snapshot.empty) {
+                            const minhaSessao = snapshot.docs[0].id;
+                            console.log("[AUTO-LOGIN INLINE] Sessão no banco:", minhaSessao);
+                            if (typeof window.iniciarRotinaDeBoot === 'function') {
+                                window.iniciarRotinaDeBoot(minhaSessao);
+                            }
+                        } else {
+                            if (telaSessao) telaSessao.style.display = 'flex';
+                        }
+                    } catch (e) {
+                        console.error("[AUTO-LOGIN INLINE] Erro:", e);
+                        if (telaSessao) telaSessao.style.display = 'flex';
+                    }
+                }
+            } else {
+                if (telaAuth) telaAuth.style.display = 'flex';
+                if (telaSessao) telaSessao.style.display = 'none';
+            }
+        });
+    });
+</script>
+
 
 <canvas id="chuva-codigo" style="z-index:9999998;"></canvas>
 
@@ -160,29 +472,28 @@
             </aside>
 
             <div class="conteudo-dinamico" id="area-dinamica">
-                
-                <section id="aba-mapa" class="aba-secao" style="display:block; padding: 0; overflow: hidden;">
-    <iframe id="globo-frame" src="/globo.html" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
-</section>
 
-                
-<section id="aba-agentes" class="aba-secao">
-    <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px; margin-bottom: 20px;">
-        <div>
-            <h2 style="color:#fff; font-size:1.2rem;">BASE DE AGENTES OPERACIONAIS</h2>
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <select id="filtro-agentes" onchange="window.renderizarAgentesModular()" style="width: 180px; background: #000; border: 1px solid var(--borda-fbi); color: #fff; padding: 8px; font-size: 0.75rem; outline: none; cursor: pointer;">
-                    <option value="TODOS">TODOS OS AGENTES</option>
-                    <option value="PENDENTES">AGUARDANDO APROVAÇÃO</option>
-                    <option value="ATIVOS">APENAS ATIVOS</option>
-                </select>
-                <input type="text" id="busca-agentes" oninput="window.renderizarAgentesModular()" placeholder="Buscar por Nome ou ID..." style="width: 250px; padding: 8px; font-size: 0.75rem; background: #000; border: 1px solid var(--borda-fbi); color: #fff; outline: none;">
-            </div>
-        </div>
-        <button class="btn-fbi-action admin-only" onclick="abrirFormularioAgente()" style="width:auto; margin:0; display:block;">+ REGISTRAR AGENTE</button>
-    </div>
-    <div class="grid-fichas" id="grid-agentes-ativos"></div>
-</section>
+                <section id="aba-mapa" class="aba-secao" style="display:block; padding: 0; overflow: hidden;">
+                    <iframe id="globo-frame" src="/globo.html" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+                </section>
+
+                <section id="aba-agentes" class="aba-secao">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px; margin-bottom: 20px;">
+                        <div>
+                            <h2 style="color:#fff; font-size:1.2rem;">BASE DE AGENTES OPERACIONAIS</h2>
+                            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                                <select id="filtro-agentes" onchange="window.renderizarAgentesModular()" style="width: 180px; background: #000; border: 1px solid var(--borda-fbi); color: #fff; padding: 8px; font-size: 0.75rem; outline: none; cursor: pointer;">
+                                    <option value="TODOS">TODOS OS AGENTES</option>
+                                    <option value="PENDENTES">AGUARDANDO APROVAÇÃO</option>
+                                    <option value="ATIVOS">APENAS ATIVOS</option>
+                                </select>
+                                <input type="text" id="busca-agentes" oninput="window.renderizarAgentesModular()" placeholder="Buscar por Nome ou ID..." style="width: 250px; padding: 8px; font-size: 0.75rem; background: #000; border: 1px solid var(--borda-fbi); color: #fff; outline: none;">
+                            </div>
+                        </div>
+                        <button class="btn-fbi-action admin-only" onclick="abrirFormularioAgente()" style="width:auto; margin:0; display:block;">+ REGISTRAR AGENTE</button>
+                    </div>
+                    <div class="fbi-grid" id="grid-agentes-ativos"></div>
+                </section>
 
                 <section id="aba-perfil" class="aba-secao">
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;">
@@ -217,55 +528,61 @@
                         </div>
                         <button class="btn-fbi-action admin-only" onclick="abrirFormularioInventario()" style="width:auto; margin:0; display:none;">+ CADASTRAR ITEM</button>
                     </div>
-                    
-                    <div class="grid-fichas" id="grid-inventario" style="margin-top: 10px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));">
-                        </div>
-                    </section>
+                    <div class="grid-fichas" id="grid-inventario" style="margin-top: 10px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));"></div>
+                </section>
 
-                <section id="aba-relatorios" class="aba-secao"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;"><h2 style="color:#fff; font-size:1.2rem;">DIÁRIO DE CAMPO E RELATÓRIOS</h2><button class="btn-fbi-action" onclick="abrirFormularioRelatorio()" style="width:auto; margin:0;">+ REDIGIR RELATÓRIO</button></div><div id="lista-relatorios" style="margin-top: 20px;"></div></section>
-                <section id="aba-memorial" class="aba-secao"><h2 style="color:#ff3333; border-bottom:1px solid #732222; padding-bottom:10px; font-size:1.2rem;">MEMORIAL DE PERDAS OPERACIONAIS</h2><div class="grid-fichas" id="grid-agentes-mortos"></div></section>
-                <section id="aba-arquivos" class="aba-secao"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;"><h2 style="color:#fff; font-size:1.2rem;">BANCO DE DADOS DOCUMENTAL</h2><button class="btn-fbi-action" onclick="abrirFormularioArquivo()" style="width:auto; margin:0;">+ NOVO DOCUMENTO</button></div><table class="tabela-arquivos"><thead><tr><th>CÓDIGO</th><th>TÍTULO</th><th>ACESSO</th><th>STATUS</th></tr></thead><tbody id="tbody-arquivos"></tbody></table></section>
-                <section id="aba-registros" class="aba-secao"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;"><h2 style="color:var(--amber-alert); font-size:1.2rem;">CONTROLE DE ACESSOS E PERFIS</h2><button class="btn-fbi-action" onclick="abrirFormularioUsuario()" style="width:auto; margin:0;">+ NOVO LOGIN</button></div><table class="tabela-arquivos"><thead><tr><th>ID DE LOGIN</th><th>AGENTES VINCULADOS</th><th>PATENTE</th><th>AÇÕES</th></tr></thead><tbody id="tbody-usuarios"></tbody></table></section>
-
-                <div class="fbi-window" id="modal-dinamico">
-                    <div class="fbi-window-header" id="header-arrastavel">
-                        <span id="titulo-modal">Carregando...</span>
-                        <span style="cursor:pointer;color:var(--amber-alert);" onclick="fecharModal()">[X]</span>
+                <section id="aba-relatorios" class="aba-secao">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;">
+                        <h2 style="color:#fff; font-size:1.2rem;">DIÁRIO DE CAMPO E RELATÓRIOS</h2>
+                        <button class="btn-fbi-action" onclick="abrirFormularioRelatorio()" style="width:auto; margin:0;">+ REDIGIR RELATÓRIO</button>
                     </div>
-                    <div class="fbi-window-content" id="conteudo-modal"></div>
-                </div>
+                    <div id="lista-relatorios" style="margin-top: 20px;"></div>
+                </section>
 
-                <div class="fbi-window" id="modal-confirmacao">
-                    <div class="fbi-window-header"><span style="color:#ff3333;">! ALERTA DE SISTEMA !</span></div>
-                    <div class="fbi-window-content">
-                        <p id="msg-confirmacao" style="margin-bottom:15px; text-align:center; font-weight:bold;"></p>
-                        <div style="display:flex; gap:10px;">
-                            <button class="btn-fbi-action btn-fbi-delete" id="btn-confirma-sim">CONFIRMAR</button>
-                            <button class="btn-fbi-action secundario" id="btn-confirma-nao">CANCELAR</button>
+                <section id="aba-memorial" class="aba-secao">
+                    <h2 style="color:#ff3333; border-bottom:1px solid #732222; padding-bottom:10px; font-size:1.2rem;">MEMORIAL DE PERDAS OPERACIONAIS</h2>
+                    <div class="grid-fichas" id="grid-agentes-mortos"></div>
+                </section>
 
-                        </div>
+                <section id="aba-arquivos" class="aba-secao">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;">
+                        <h2 style="color:#fff; font-size:1.2rem;">BANCO DE DADOS DOCUMENTAL</h2>
+                        <button class="btn-fbi-action" onclick="abrirFormularioArquivo()" style="width:auto; margin:0;">+ NOVO DOCUMENTO</button>
                     </div>
-                </div>
+                    <table class="tabela-arquivos">
+                        <thead><tr><th>CÓDIGO</th><th>TÍTULO</th><th>ACESSO</th><th>STATUS</th></tr></thead>
+                        <tbody id="tbody-arquivos"></tbody>
+                    </table>
+                </section>
 
+                <section id="aba-registros" class="aba-secao">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;">
+                        <h2 style="color:var(--amber-alert); font-size:1.2rem;">CONTROLE DE ACESSOS E PERFIS</h2>
+                        <button class="btn-fbi-action" onclick="abrirFormularioUsuario()" style="width:auto; margin:0;">+ NOVO LOGIN</button>
+                    </div>
+                    <table class="tabela-arquivos">
+                        <thead><tr><th>ID DE LOGIN</th><th>AGENTES VINCULADOS</th><th>PATENTE</th><th>AÇÕES</th></tr></thead>
+                        <tbody id="tbody-usuarios"></tbody>
+                    </table>
+                </section>
+
+<div class="fbi-window" id="modal-dinamico">
+        <div class="fbi-window-header" id="header-arrastavel">
+            <span id="titulo-modal">Carregando...</span>
+            <span style="cursor:pointer;color:var(--amber-alert);" onclick="fecharModal()">[X]</span>
+        </div>
+        <div class="fbi-window-content" id="conteudo-modal"></div>
+    </div>
+
+    <div class="fbi-window" id="modal-confirmacao">
+        <div class="fbi-window-header"><span style="color:#ff3333;">! ALERTA DE SISTEMA !</span></div>
+        <div class="fbi-window-content">
+            <p id="msg-confirmacao" style="margin-bottom:15px; text-align:center; font-weight:bold;"></p>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-fbi-action btn-fbi-delete" id="btn-confirma-sim">CONFIRMAR</button>
+                <button class="btn-fbi-action secundario" id="btn-confirma-nao">CANCELAR</button>
             </div>
         </div>
     </div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- code-rain agora vive em src/modules/ui/code-rain.js -->
-
-    <script src="/legacy-app.js"></script>
-    <script type="module" src="/src/main.js"></script>
-
-<div id="notification-panel" style="display: none; position: fixed; top: 65px; right: 20px; width: 320px; background: var(--janela-fbi); border: 1px solid var(--borda-fbi); border-top: 2px solid var(--amber-alert); z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,0.8); font-family: monospace;">
-    <div style="padding: 12px; border-bottom: 1px solid #1c2630; color: #fff; font-weight: bold; display: flex; justify-content: space-between; background: #090c10;">
-        <span>ALERTAS DO SISTEMA</span>
-        <span style="cursor: pointer; color: var(--vermelho-critica);" onclick="window.toggleNotifications()">[X]</span>
-    </div>
-    <div id="notification-list" style="max-height: 350px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-        <!-- Notificações injetadas via JS -->
-    </div>
-</div>
-</body>
+      </body>
 </html>
