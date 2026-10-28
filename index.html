@@ -1,0 +1,271 @@
+	<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARQUIVO 66 - ORDO REALITAS</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <link rel="stylesheet" href="/src/styles/main.css">
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔺</text></svg>">
+</head>
+<body>
+
+<canvas id="chuva-codigo" style="z-index:9999998;"></canvas>
+
+<div id="tela-auth" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#07090c; z-index:9999999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; font-family:monospace; display:none;">
+    
+    <div id="box-login" style="text-align:center; max-width:400px; width: 90%; padding:30px; border:1px solid #1c2630; background:#000; box-shadow:0 0 30px rgba(66,255,66,0.1); border-radius: 8px;">
+        <h2 style="color:var(--verde-terminal); margin-bottom: 5px; font-size:1.5rem;">ARQUIVO 66</h2>
+        <p style="font-size:0.75rem; color:#a6b7c9; margin-bottom:25px;">AUTENTICAÇÃO GLOBAL</p>
+        
+        <input type="email" id="login-email" placeholder="E-MAIL" class="input-fbi">
+        <input type="password" id="login-senha" placeholder="SENHA" class="input-fbi" style="margin-bottom:20px;">
+        
+        <button class="btn-fbi-action" style="width:100%; margin-bottom:10px;" onclick="logarEmail()">ENTRAR</button>
+        
+        <p style="font-size:0.75rem; color:#a6b7c9; margin-top:10px; cursor:pointer; text-decoration:underline;" onclick="alternarTelaAuth('cadastro')">Não tem acesso? Registre-se aqui.</p>
+    </div>
+
+    <div id="box-cadastro" style="text-align:center; max-width:400px; width: 90%; padding:30px; border:1px solid #1c2630; background:#000; box-shadow:0 0 30px rgba(255,176,0,0.1); border-radius: 8px; display:none;">
+        <h2 style="color:var(--amber-alert); margin-bottom: 5px; font-size:1.5rem;">NOVO REGISTRO</h2>
+        <p style="font-size:0.75rem; color:#a6b7c9; margin-bottom:25px;">CRIAR CREDENCIAL DE ACESSO</p>
+        
+        <input type="email" id="cad-email" placeholder="E-MAIL" class="input-fbi">
+        <input type="password" id="cad-senha" placeholder="SENHA" class="input-fbi">
+        <input type="password" id="cad-senha-confirma" placeholder="CONFIRMAR SENHA" class="input-fbi" style="margin-bottom:20px;">
+        
+        <button class="btn-fbi-action" style="background:var(--amber-alert); color:#000; width:100%; margin-bottom:15px;" onclick="registrarEmail()">REGISTRAR ACESSO</button>
+        
+        <p style="font-size:0.75rem; color:#a6b7c9; cursor:pointer; text-decoration:underline;" onclick="alternarTelaAuth('login')">Já possui credencial? Voltar ao Login.</p>
+    </div>
+</div>
+
+
+
+<!-- TELA DE CONEXÃO DE SESSÃO (LOBBY MULTIPLAYER) -->
+
+<div id="tela-sessao" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#07090c; z-index:999999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; font-family:monospace;">
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-bottom:12px;"><button onclick="window.open('https://www.catarse.com.br/arquivo-66?ref=ctrse_project_share&utm_campaign=ctrse_dashboard-start&utm_medium=copy_link&utm_source=creator','_blank')" style="background:rgba(255,180,0,.12);border:1px solid var(--amber-alert);color:var(--amber-alert);padding:8px 14px;font-size:.7rem;cursor:pointer;font-family:inherit;letter-spacing:1px;text-transform:uppercase;transition:.15s;" onmouseenter="this.style.boxShadow='0 0 8px rgba(255,180,0,.35),0 0 18px rgba(255,180,0,.12)';this.style.transform='translateY(-1px)'" onmouseleave="this.style.boxShadow='none';this.style.transform='translateY(0)'">★ APOIAR PROJETO</button><button onclick="window.open('SEU_LINK_DISCORD','_blank')" style="background:rgba(60,90,180,.12);border:1px solid #7289da;color:#90a8ff;padding:8px 14px;font-size:.7rem;cursor:pointer;font-family:inherit;letter-spacing:1px;text-transform:uppercase;transition:.15s;" onmouseenter="this.style.boxShadow='0 0 8px rgba(114,137,218,.35),0 0 18px rgba(114,137,218,.12)';this.style.transform='translateY(-1px)'" onmouseleave="this.style.boxShadow='none';this.style.transform='translateY(0)'">DISCORD [EM BREVE]</button></div>
+
+    <div id="sessao-box" style="width: 90%; max-width: 400px; text-align: center; border: 1px solid var(--borda-fbi); background: #000; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); z-index: 10;">
+        <h2 style="color:var(--fbi-text); margin-bottom: 20px; font-size: 1.2rem; letter-spacing: 2px;">CONEXÃO DE SESSÃO</h2>
+
+        <input type="text" id="input-codigo-sessao" placeholder="EX: NET-1234" style="width:100%; padding:15px; background:#07090c; border:1px solid var(--verde-terminal, #42ff42); color:#fff; text-align:center; font-size:1.5rem; margin-bottom:15px; text-transform:uppercase; outline: none; font-weight: bold; letter-spacing: 2px;">
+
+
+        <button class="btn-fbi-action" style="width:100%; background:var(--verde-terminal, #42ff42); color:#000; padding:15px; font-size:1rem;" onclick="entrarSessaoExistente()">CONECTAR À SESSÃO</button>
+    </div>
+        
+                
+        <div style="margin-top: 30px; border-top: 1px dashed #1c2630; padding-top: 20px;">
+            <p style="font-size:0.7rem; color:#a6b7c9; margin-bottom:10px;">É um Mestre e deseja iniciar uma nova campanha?</p>
+            <button class="btn-fbi-action secundario" style="width:100%; padding:10px;" onclick="criarNovaSessao()">CRIAR NOVA SALA DE MESTRE</button>
+        <div style="position:fixed;bottom:12px;right:18px;font-size:.70rem;letter-spacing:1px;z-index:50;pointer-events:none;text-align:right;opacity:.98;"><div><span style="color:var(--amber-alert);text-shadow:0 0 4px rgba(255,180,0,.7),0 0 10px rgba(255,180,0,.35);">ARQUIVO 66</span><span style="color:var(--verde-terminal);text-shadow:0 0 4px rgba(66,255,66,.7),0 0 10px rgba(66,255,66,.35);"> EM DESENVOLVIMENTO ATIVO</span></div><div style="margin-top:3px;color:#5d6a77;font-size:.55rem;letter-spacing:2px;">v0.4.2 ALPHA</div></div>
+        </div>
+    </div>
+    <div id="toast-sessao" style="display:none; margin-top:20px; background:var(--amber-alert, #ffb000); color:#000; padding: 10px 20px; font-weight:bold; border-radius: 4px;"></div>
+</div>
+<!-- ============================================== -->
+
+    <div id="dice-toast">
+        <div class="toast-title" id="toast-pericia">TESTE DE PERÍCIA</div>
+        <div class="toast-result" id="toast-total">20</div>
+        <div class="toast-calc" id="toast-calc">[d20] 15 + 5</div>
+    </div>
+    <div id="sys-toast">SISTEMA ATUALIZADO COM SUCESSO.</div>
+
+    <div id="tela-intro">
+        <div class="boot-terminal" id="linhas-log"></div>
+        <div class="barra-progresso-container"><div class="barra-progresso" id="progresso-fbi"></div></div>
+    </div>
+
+    <div id="tela-login">
+        <div class="login-box" id="box-login">
+            <h2 style="color:#fff; letter-spacing: 4px;" id="login-title">ARQUIVO 66</h2>
+            <div class="perfis-container" id="perfis-botoes">
+                <button class="perfil-btn" onclick="iniciarLogin()">EFETUAR LOGIN</button>
+            </div>
+            
+            <div id="login-processo">
+                <p style="font-size:0.75rem; color:var(--amber-alert); margin-bottom:10px;" id="login-instrucao"></p>
+                <input type="text" id="agente-id-input" placeholder="ID DE ACESSO" style="text-align:center; font-size:1.2rem; margin-bottom:15px; text-transform:uppercase;">
+                
+                <div id="pinpad-container" style="display:none;">
+                    <input type="password" class="pin-display" id="pin-display" readonly>
+                    <div class="pinpad-grid">
+                        <button class="pin-btn" onclick="digitarPin('1')">1</button><button class="pin-btn" onclick="digitarPin('2')">2</button><button class="pin-btn" onclick="digitarPin('3')">3</button>
+                        <button class="pin-btn" onclick="digitarPin('4')">4</button><button class="pin-btn" onclick="digitarPin('5')">5</button><button class="pin-btn" onclick="digitarPin('6')">6</button>
+                        <button class="pin-btn" onclick="digitarPin('7')">7</button><button class="pin-btn" onclick="digitarPin('8')">8</button><button class="pin-btn" onclick="digitarPin('9')">9</button>
+                        <button class="pin-btn btn-cancel" onclick="cancelarLogin()">X</button><button class="pin-btn" onclick="digitarPin('0')">0</button><button class="pin-btn" style="background:var(--amber-alert); color:#000; font-weight:bold;" onclick="validarLogin()">OK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-principal">
+        <div id="admin-banner">MODO ADMINISTRADOR DIRETOR ATIVO</div>
+        
+        <header>
+            <div class="header-left">
+                <div class="title-block">
+                    <h1 class="logo-title">
+                        <svg class="illuminati-logo" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--amber-alert)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2L2 22h20L12 2z"></path>
+                            <path d="M12 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"></path>
+                            <circle cx="12" cy="14" r="1.5" fill="var(--amber-alert)"></circle>
+                        </svg>
+                        ARQUIVO 66 // NET
+                    </h1>
+                </div>
+                <div class="credencial-sub" id="credencial-display">AUTENTICADO</div>
+            </div>
+            <div style="text-align: right;">
+                
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <div id="notification-bell" onclick="window.toggleNotifications()" style="position: relative; cursor: pointer; color: var(--fbi-text); font-size: 1.2rem; transition: 0.2s;">
+            <i class="fa-solid fa-bell"></i>
+            <span id="notif-badge" style="display: none; position: absolute; top: -5px; right: -8px; background: var(--vermelho-critica); color: #fff; font-size: 0.6rem; padding: 2px 5px; border-radius: 50%; font-weight: bold; font-family: monospace;">0</span>
+        </div>
+        <div class="status-conn">> CONEXÃO SEGURA // CRIPTOGRAFADO</div>
+    </div>
+            </div>
+        </header>
+
+        <div class="painel-principal">
+            
+            <aside class="sidebar" id="sidebar-menu">
+                <a href="#mapa" class="nav-button ativo" id="link-mapa"><i class="fa-solid fa-map-location-dot"></i><span>Explorador</span></a>
+                <a href="#perfil" class="nav-button agente-only" id="link-perfil" style="display:none;"><i class="fa-solid fa-user-astronaut"></i><span>Meu Perfil</span></a>
+                <a href="#agentes" class="nav-button admin-only" id="link-agentes" style="display:none;"><i class="fa-solid fa-users-viewfinder"></i><span>Base de Agentes</span></a>
+                <a href="#entidades" class="nav-button" id="link-entidades"><i class="fa-solid fa-book-skull"></i><span>Bestiário</span></a>
+                <a href="#relatorios" class="nav-button" id="link-relatorios"><i class="fa-solid fa-file-waveform"></i><span>Diário de Campo</span></a>
+                <a href="#arquivos" class="nav-button" id="link-arquivos"><i class="fa-solid fa-folder-tree"></i><span>Base Documental</span></a>
+                <a href="#inventario" class="nav-button" id="link-inventario"><i class="fa-solid fa-box-open"></i><span>Inventário</span></a>
+                <a href="#memorial" class="nav-button" id="link-memorial"><i class="fa-solid fa-cross"></i><span>Memorial</span></a>
+                <a href="#registros" class="nav-button admin-only" id="link-registros" style="display:none; color:var(--amber-alert); margin-top:20px; border-top:1px solid #333; padding-top:20px;"><i class="fa-solid fa-gears"></i><span>Controle Admin</span></a>
+                <button class="nav-button btn-logout" onclick="fazerLogout()"><i class="fa-solid fa-power-off"></i><span>Desconectar</span></button>
+            </aside>
+
+            <div class="conteudo-dinamico" id="area-dinamica">
+                
+                <section id="aba-mapa" class="aba-secao" style="display:block; padding: 0; overflow: hidden;">
+    <iframe id="globo-frame" src="/globo.html" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+</section>
+
+                
+<section id="aba-agentes" class="aba-secao">
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px; margin-bottom: 20px;">
+        <div>
+            <h2 style="color:#fff; font-size:1.2rem;">BASE DE AGENTES OPERACIONAIS</h2>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <select id="filtro-agentes" onchange="window.renderizarAgentesModular()" style="width: 180px; background: #000; border: 1px solid var(--borda-fbi); color: #fff; padding: 8px; font-size: 0.75rem; outline: none; cursor: pointer;">
+                    <option value="TODOS">TODOS OS AGENTES</option>
+                    <option value="PENDENTES">AGUARDANDO APROVAÇÃO</option>
+                    <option value="ATIVOS">APENAS ATIVOS</option>
+                </select>
+                <input type="text" id="busca-agentes" oninput="window.renderizarAgentesModular()" placeholder="Buscar por Nome ou ID..." style="width: 250px; padding: 8px; font-size: 0.75rem; background: #000; border: 1px solid var(--borda-fbi); color: #fff; outline: none;">
+            </div>
+        </div>
+        <button class="btn-fbi-action admin-only" onclick="abrirFormularioAgente()" style="width:auto; margin:0; display:block;">+ REGISTRAR AGENTE</button>
+    </div>
+    <div class="grid-fichas" id="grid-agentes-ativos"></div>
+</section>
+
+                <section id="aba-perfil" class="aba-secao">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;">
+                        <h2 style="color:#fff; font-size:1.2rem;">MINHAS FICHAS OPERACIONAIS</h2>
+                    </div>
+                    <div class="grid-fichas" id="grid-meu-perfil"></div>
+                </section>
+                
+                <section id="aba-ficha-completa" class="aba-secao">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <button class="btn-voltar" onclick="voltarDaFicha()"><i class="fa-solid fa-arrow-left"></i> VOLTAR PARA A BASE</button>
+                    </div>
+                    <div id="conteudo-ficha-completa"></div>
+                    <div style="text-align:center; margin-top:30px;">
+                        <button class="btn-fbi-action admin-only btn-salvar-ficha" style="width:300px; display:none;" onclick="salvarAlteracoesFichaAtual()">SALVAR ALTERAÇÕES DA FICHA</button>
+                    </div>
+                </section>
+
+                <section id="aba-entidades" class="aba-secao">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;">
+                        <h2 style="color:#fff; font-size:1.2rem;">BANCO DE ENTIDADES (CATÁLOGO OCULTO)</h2>
+                        <button class="btn-fbi-action admin-only" onclick="abrirFormularioEntidade()" style="width:auto; margin:0; display:none;">+ CATALOGAR AMEAÇA</button>
+                    </div>
+                    <div class="grid-fichas" id="grid-entidades"></div>
+                </section>
+
+                <section id="aba-inventario" class="aba-secao" style="display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;">
+                        <div>
+                            <h2 style="color:var(--fbi-text); font-size:1.2rem;">INVENTÁRIO OPERACIONAL</h2>
+                            <p style="font-size:0.75rem; color:#5b6f82; margin-top: 5px;">GERENCIAMENTO DE RECURSOS, ARTEFATOS E EQUIPAMENTOS</p>
+                        </div>
+                        <button class="btn-fbi-action admin-only" onclick="abrirFormularioInventario()" style="width:auto; margin:0; display:none;">+ CADASTRAR ITEM</button>
+                    </div>
+                    
+                    <div class="grid-fichas" id="grid-inventario" style="margin-top: 10px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));">
+                        </div>
+                    </section>
+
+                <section id="aba-relatorios" class="aba-secao"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;"><h2 style="color:#fff; font-size:1.2rem;">DIÁRIO DE CAMPO E RELATÓRIOS</h2><button class="btn-fbi-action" onclick="abrirFormularioRelatorio()" style="width:auto; margin:0;">+ REDIGIR RELATÓRIO</button></div><div id="lista-relatorios" style="margin-top: 20px;"></div></section>
+                <section id="aba-memorial" class="aba-secao"><h2 style="color:#ff3333; border-bottom:1px solid #732222; padding-bottom:10px; font-size:1.2rem;">MEMORIAL DE PERDAS OPERACIONAIS</h2><div class="grid-fichas" id="grid-agentes-mortos"></div></section>
+                <section id="aba-arquivos" class="aba-secao"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;"><h2 style="color:#fff; font-size:1.2rem;">BANCO DE DADOS DOCUMENTAL</h2><button class="btn-fbi-action" onclick="abrirFormularioArquivo()" style="width:auto; margin:0;">+ NOVO DOCUMENTO</button></div><table class="tabela-arquivos"><thead><tr><th>CÓDIGO</th><th>TÍTULO</th><th>ACESSO</th><th>STATUS</th></tr></thead><tbody id="tbody-arquivos"></tbody></table></section>
+                <section id="aba-registros" class="aba-secao"><div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--borda-fbi); padding-bottom:10px;"><h2 style="color:var(--amber-alert); font-size:1.2rem;">CONTROLE DE ACESSOS E PERFIS</h2><button class="btn-fbi-action" onclick="abrirFormularioUsuario()" style="width:auto; margin:0;">+ NOVO LOGIN</button></div><table class="tabela-arquivos"><thead><tr><th>ID DE LOGIN</th><th>AGENTES VINCULADOS</th><th>PATENTE</th><th>AÇÕES</th></tr></thead><tbody id="tbody-usuarios"></tbody></table></section>
+
+                <div class="fbi-window" id="modal-dinamico">
+                    <div class="fbi-window-header" id="header-arrastavel">
+                        <span id="titulo-modal">Carregando...</span>
+                        <span style="cursor:pointer;color:var(--amber-alert);" onclick="fecharModal()">[X]</span>
+                    </div>
+                    <div class="fbi-window-content" id="conteudo-modal"></div>
+                </div>
+
+                <div class="fbi-window" id="modal-confirmacao">
+                    <div class="fbi-window-header"><span style="color:#ff3333;">! ALERTA DE SISTEMA !</span></div>
+                    <div class="fbi-window-content">
+                        <p id="msg-confirmacao" style="margin-bottom:15px; text-align:center; font-weight:bold;"></p>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn-fbi-action btn-fbi-delete" id="btn-confirma-sim">CONFIRMAR</button>
+                            <button class="btn-fbi-action secundario" id="btn-confirma-nao">CANCELAR</button>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- code-rain agora vive em src/modules/ui/code-rain.js -->
+
+    <script src="/legacy-app.js"></script>
+    <script type="module" src="/src/main.js"></script>
+
+<div id="notification-panel" style="display: none; position: fixed; top: 65px; right: 20px; width: 320px; background: var(--janela-fbi); border: 1px solid var(--borda-fbi); border-top: 2px solid var(--amber-alert); z-index: 9999; box-shadow: 0 10px 30px rgba(0,0,0,0.8); font-family: monospace;">
+    <div style="padding: 12px; border-bottom: 1px solid #1c2630; color: #fff; font-weight: bold; display: flex; justify-content: space-between; background: #090c10;">
+        <span>ALERTAS DO SISTEMA</span>
+        <span style="cursor: pointer; color: var(--vermelho-critica);" onclick="window.toggleNotifications()">[X]</span>
+    </div>
+    <div id="notification-list" style="max-height: 350px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+        <!-- Notificações injetadas via JS -->
+    </div>
+</div>
+</body>
+</html>

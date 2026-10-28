@@ -1,0 +1,12 @@
+:root {
+    --verde-terminal: #42ff42;
+    --amber-alert: #ffb000;
+    --azul-seguro: #00aaff;
+    --vermelho-critica: #ff3333;
+    --fundo-fbi: #05070a;
+    --janela-fbi: #0e1319;
+    --borda-fbi: #1c2630;
+    --fbi-text: #a6b7c9;
+    --fbi-interface-blue: #141d26;
+    --ele-sangue: #b30000; --ele-morte: #404040; --ele-energia: #9900ff; --ele-conhecimento: #cc9900; --ele-medo: #ffffff;
+}

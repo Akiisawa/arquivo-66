@@ -1,0 +1,2171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TERRA // Globo 3D Monocromático Interativo</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- TopoJSON Client para renderizar fronteiras e continentes reais -->
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-primary: #050505;
+            --hud-bg: rgba(12, 12, 14, 0.78);
+            --hud-border: rgba(255, 255, 255, 0.16);
+            --hud-text: #f5f5f7;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-primary);
+            font-family: 'Inter', sans-serif;
+            color: var(--hud-text);
+            transition: background-color 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .font-mono-tech {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+
+        /* Camada de Rótulos 2D Projetados (Estados e Cidades) */
+        #labels-container {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 4;
+        }
+
+        .geo-label {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -50%);
+            white-space: nowrap;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: opacity 0.18s ease;
+            will-change: transform, opacity;
+        }
+
+        .geo-label-state {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            padding: 1px 4px;
+            border-radius: 3px;
+            color: rgba(255, 255, 255, 0.65);
+            background: rgba(5, 5, 8, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            text-transform: uppercase;
+        }
+
+        .geo-label-state:hover {
+            color: #ffffff;
+            background: rgba(20, 20, 25, 0.9);
+            border-color: rgba(255, 255, 255, 0.6);
+            z-index: 30;
+        }
+
+        body.theme-inverted .geo-label-state {
+            color: rgba(10, 10, 14, 0.72);
+            background: rgba(245, 245, 248, 0.72);
+            border-color: rgba(0, 0, 0, 0.22);
+        }
+
+        .geo-label-city {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: 'Inter', sans-serif;
+            color: #ffffff;
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.85);
+        }
+
+        body.theme-inverted .geo-label-city {
+            color: #09090b;
+            text-shadow: 0 1px 4px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.9);
+        }
+
+        .geo-label-city .city-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 9999px;
+            background: currentColor;
+            box-shadow: 0 0 6px rgba(0, 0, 0, 0.9);
+            flex-shrink: 0;
+        }
+
+        .geo-label-city.tier-1 {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
+
+        .geo-label-city.tier-1 .city-dot {
+            width: 6px;
+            height: 6px;
+            border: 1.5px solid currentColor;
+            background: #050505;
+        }
+
+        body.theme-inverted .geo-label-city.tier-1 .city-dot {
+            background: #ffffff;
+        }
+
+        .geo-label-city.tier-2 {
+            font-size: 10.5px;
+            font-weight: 600;
+        }
+
+        .geo-label-city.tier-3 {
+            font-size: 9.5px;
+            font-weight: 500;
+            opacity: 0.92;
+        }
+
+        .geo-label-city.tier-3 .city-dot {
+            width: 4px;
+            height: 4px;
+        }
+
+        .geo-label-city.custom-pin {
+            background: #ffffff;
+            color: #050505;
+            text-shadow: none;
+            padding: 2px 7px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 700;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.65);
+            z-index: 40;
+        }
+
+        body.theme-inverted .geo-label-city.custom-pin {
+            background: #09090b;
+            color: #ffffff;
+        }
+
+        /* Estilização Glassmorphism Monocromático para o HUD */
+        .hud-panel {
+            background: rgba(10, 10, 12, 0.76);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 10px 35px -5px rgba(0, 0, 0, 0.7);
+            transition: all 0.3s ease;
+        }
+
+        body.theme-inverted .hud-panel {
+            background: rgba(245, 245, 247, 0.82);
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            color: #0a0a0c;
+            box-shadow: 0 10px 35px -5px rgba(0, 0, 0, 0.12);
+        }
+
+        .hud-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .hud-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .hud-btn:active {
+            transform: translateY(0px) scale(0.97);
+        }
+
+        .hud-btn.active {
+            background: #ffffff;
+            color: #050505;
+            border-color: #ffffff;
+            font-weight: 600;
+        }
+
+        body.theme-inverted .hud-btn {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.18);
+            color: #0a0a0c;
+        }
+
+        body.theme-inverted .hud-btn:hover {
+            background: rgba(0, 0, 0, 0.14);
+            border-color: rgba(0, 0, 0, 0.4);
+        }
+
+        body.theme-inverted .hud-btn.active {
+            background: #0a0a0c;
+            color: #ffffff;
+            border-color: #0a0a0c;
+        }
+
+        /* Vinheta sutil nas bordas da tela */
+        .vignette {
+            pointer-events: none;
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 55%, rgba(0, 0, 0, 0.65) 100%);
+            z-index: 5;
+            transition: opacity 0.5s ease;
+        }
+
+        body.theme-inverted .vignette {
+            background: radial-gradient(circle at center, transparent 60%, rgba(0, 0, 0, 0.18) 100%);
+        }
+
+        /* Marcador de pulso nas coordenadas selecionadas */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); opacity: 0.9; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }
+
+        .pulse-dot::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 1px solid currentColor;
+            animation: pulse-ring 1.8s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+        }
+
+        /* CustomRange Slider */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(150, 150, 150, 0.35);
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: currentColor;
+            margin-top: -5px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.5);
+        }
+
+        /* Scrollbar fina para resultados de busca */
+        .custom-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(150, 150, 150, 0.35);
+            border-radius: 9999px;
+        }
+    
+        /* Estilo das Bolinhas de Missão */
+        .mission-marker {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 50;
+            /* transition: transform removido para evitar flutuação */
+box-shadow: 0 0 10px currentColor;
+        }
+        .mission-marker::after {
+            content: '';
+            position: absolute;
+            inset: -5px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            animation: pulse-ring 1.8s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+            opacity: 0.8;
+        }
+        .mission-marker:hover {
+            transform: translate(-50%, -50%) scale(1.4);
+            z-index: 60;
+        }
+
+    .mission-marker { z-index: 50; box-shadow: 0 0 15px currentColor; }
+       @keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 0.9; } 100% { transform: scale(2.5); opacity: 0; } }
+       </style>
+</head>
+<body class="antialiased selection:bg-white selection:text-black">
+
+    <!-- Container do Canvas Three.js -->
+    <div id="canvas-container" aria-label="Globo Terrestre 3D Interativo"></div>
+
+    <!-- Container de Rótulos 2D Projetados (Estados / UFs e Cidades) -->
+    <div id="labels-container" aria-hidden="true"></div>
+
+    <!-- Vinheta Cinematográfica -->
+    <div class="vignette"></div>
+
+    <!-- Cabeçalho / Telemetria Superior + Busca de Cidades e Estados -->
+    <header class="fixed top-0 left-0 right-0 z-20 p-3 sm:p-4 flex flex-wrap items-start justify-between gap-2.5 pointer-events-none">
+        <!-- Bloco de Identificação -->
+        <div class="hud-panel rounded-2xl px-3.5 py-2.5 pointer-events-auto flex items-center gap-3">
+            <div class="relative w-2.5 h-2.5 rounded-full bg-current pulse-dot shrink-0"></div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-xs sm:text-sm font-bold tracking-widest uppercase">TERRA // ESTADOS & CIDADES</h1>
+                    <span id="status-badge" class="font-mono-tech text-[10px] px-2 py-0.5 rounded-full border border-current opacity-80">VETORIAL HD</span>
+                </div>
+                <p class="text-[11px] opacity-70 hidden xl:block">Dê zoom para revelar Estados (UFs) e Cidades do interior • Clique para inspecionar</p>
+            </div>
+        </div>
+
+        <!-- Barra de Busca de Cidades e Estados (Local + Nominatim Mundial) -->
+        <div class="relative pointer-events-auto w-full sm:w-80 md:w-96 order-3 lg:order-2">
+            <div class="hud-panel rounded-2xl px-3 py-1.5 flex items-center gap-2">
+                <svg class="w-4 h-4 opacity-60 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                    id="city-search-input"
+                    type="text"
+                    autocomplete="off"
+                    placeholder="Buscar cidade, estado (UF) ou país..."
+                    class="w-full bg-transparent text-xs sm:text-sm focus:outline-none placeholder:opacity-50"
+                />
+                <button id="btn-search-submit" title="Buscar localização" class="hud-btn rounded-lg px-2 py-1 text-[10px] font-mono-tech uppercase">
+                    Ir
+                </button>
+            </div>
+            <!-- Dropdown de Sugestões e Resultados -->
+            <div id="search-results-dropdown" class="hidden absolute left-0 right-0 mt-1.5 hud-panel rounded-2xl p-1.5 max-h-72 overflow-y-auto custom-scroll z-30 divide-y divide-current/10">
+            </div>
+        </div>
+
+        <!-- Telemetria de Coordenadas, Localização e Zoom em Tempo Real -->
+        <div class="hud-panel rounded-2xl px-3.5 py-2 pointer-events-auto font-mono-tech text-xs flex items-center gap-3 sm:gap-5 ml-auto order-2 lg:order-3">
+            <div>
+                <span class="block text-[9px] uppercase opacity-55">Local / Coordenada</span>
+                <span id="hud-coords" class="font-semibold tracking-tight">18.16° S, 47.94° O</span>
+                <span id="hud-place-name" class="block text-[10px] opacity-80 truncate max-w-[165px] sm:max-w-[210px]">Catalão, GO • Brasil</span>
+            </div>
+            <div class="h-7 w-px bg-current opacity-20"></div>
+            <div>
+                <span class="block text-[9px] uppercase opacity-55">Altitude / Camada LOD</span>
+                <span id="hud-zoom" class="font-semibold tracking-tight">100% (12.800 km)</span>
+                <span id="hud-lod-tier" class="block text-[10px] opacity-80">LOD 1 • Metrópoles</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Painel Lateral Esquerdo: Controle de Camadas (Países, Estados, Cidades, LOD) -->
+    <aside style="display:none !important;" class="fixed left-3 sm:left-4 top-28 sm:top-24 z-10 hidden sm:flex flex-col gap-2 pointer-events-none w-52">
+        <div class="hud-panel rounded-2xl p-3 pointer-events-auto">
+            <div class="text-[10px] font-mono-tech uppercase tracking-wider opacity-60 mb-2 px-1 flex items-center justify-between">
+                <span>Camadas Cartográficas</span>
+                <span id="data-loading-indicator" class="text-[9px]">CARREGANDO...</span>
+            </div>
+            <div class="flex flex-col gap-1.5 text-xs">
+                <button id="toggle-countries" class="hud-btn active rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Fronteiras de Países</span>
+                    <span class="font-mono-tech text-[10px]">ON</span>
+                </button>
+                <button id="toggle-states" class="hud-btn active rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Estados / UFs (3D)</span>
+                    <span class="font-mono-tech text-[10px]">ON</span>
+                </button>
+                <button id="toggle-state-labels" class="hud-btn active rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Siglas dos Estados</span>
+                    <span class="font-mono-tech text-[10px]">ON</span>
+                </button>
+                <button id="toggle-cities" class="hud-btn active rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Cidades e Capitais</span>
+                    <span class="font-mono-tech text-[10px]">ON</span>
+                </button>
+                <button id="toggle-city-lod" class="hud-btn rounded-xl px-3 py-1.5 text-left flex items-center justify-between" title="Alternar entre mostrar cidades conforme o Zoom ou mostrar todas de uma vez">
+                    <span>Detalhe Cidades</span>
+                    <span id="city-lod-label" class="font-mono-tech text-[10px]">AUTO ZOOM</span>
+                </button>
+                <button id="toggle-graticule" class="hud-btn active rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Grade Lat/Lon</span>
+                    <span class="font-mono-tech text-[10px]">ON</span>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Painel Lateral Direito: Atalhos Rápidos de Estados e Cidades -->
+    <aside style="display:none !important;" class="fixed right-3 sm:right-4 top-24 z-10 hidden md:flex flex-col gap-2 pointer-events-none w-52">
+        <div class="hud-panel rounded-2xl p-3 pointer-events-auto">
+            <div class="text-[10px] font-mono-tech uppercase tracking-wider opacity-60 mb-2 px-1 flex items-center justify-between">
+                <span>Voo Rápido (Fly-To)</span>
+                <span>BR / MUNDO</span>
+            </div>
+            <div class="flex flex-col gap-1.5 text-xs">
+                <button onclick="focusLocation(-18.1658, -47.9467, 'Catalão, Goiás (GO)', 116)" class="hud-btn rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Catalão (GO)</span>
+                    <span class="font-mono-tech text-[10px] opacity-70">ZOOM MAX</span>
+                </button>
+                <button onclick="focusLocation(-16.6869, -49.2648, 'Goiânia / Estado de Goiás', 124)" class="hud-btn rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Goiânia (GO)</span>
+                    <span class="font-mono-tech text-[10px] opacity-70">UF • GO</span>
+                </button>
+                <button onclick="focusLocation(-15.7939, -47.8828, 'Brasília (Distrito Federal)', 125)" class="hud-btn rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Brasília (DF)</span>
+                    <span class="font-mono-tech text-[10px] opacity-70">CAPITAL</span>
+                </button>
+                <button onclick="focusLocation(-23.5505, -46.6333, 'São Paulo (SP)', 122)" class="hud-btn rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>São Paulo (SP)</span>
+                    <span class="font-mono-tech text-[10px] opacity-70">UF • SP</span>
+                </button>
+                <button onclick="focusLocation(-22.9068, -43.1729, 'Rio de Janeiro (RJ)', 124)" class="hud-btn rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Rio de Janeiro (RJ)</span>
+                    <span class="font-mono-tech text-[10px] opacity-70">UF • RJ</span>
+                </button>
+                <button onclick="focusLocation(-14.2350, -51.9253, 'Brasil (27 Estados / UFs)', 168)" class="hud-btn rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Brasil (Visão Geral)</span>
+                    <span class="font-mono-tech text-[10px] opacity-70">27 UFs</span>
+                </button>
+                <button onclick="focusLocation(40.7128, -74.0060, 'Nova York, EUA', 135)" class="hud-btn rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Nova York (EUA)</span>
+                    <span class="font-mono-tech text-[10px] opacity-70">40°N</span>
+                </button>
+                <button onclick="focusLocation(35.6762, 139.6503, 'Tóquio, Japão', 135)" class="hud-btn rounded-xl px-3 py-1.5 text-left flex items-center justify-between">
+                    <span>Tóquio (Japão)</span>
+                    <span class="font-mono-tech text-[10px] opacity-70">35°N</span>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Notificação Flutuante de Local Selecionado -->
+    <div id="location-toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none opacity-0 transition-all duration-300 transform translate-y-2">
+        <div class="hud-panel rounded-full px-4 py-1.5 text-xs font-mono-tech flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-current"></span>
+            <span id="location-toast-text">Focando coordenada...</span>
+        </div>
+    </div>
+
+    <!-- Barra de Controles Principal (Inferior Central) -->
+    <footer class="fixed bottom-0 left-0 right-0 z-20 p-2.5 sm:p-4 flex justify-center pointer-events-none">
+        <div class="hud-panel rounded-2xl p-1.5 sm:p-2 pointer-events-auto flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 max-w-full">
+
+            <!-- Controles de Zoom -->
+            <div class="flex items-center gap-1 pr-1 sm:pr-2 border-r border-current/15">
+                <button id="btn-zoom-out" title="Diminuir Zoom (-)" aria-label="Diminuir Zoom" class="hud-btn w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-base font-mono-tech">
+                    −
+                </button>
+                <div class="hidden sm:flex flex-col items-center px-2 w-28">
+                    <input id="zoom-slider" type="range" min="0" max="100" value="48" class="w-full" aria-label="Controle deslizante de Zoom">
+                </div>
+                <button id="btn-zoom-in" title="Aumentar Zoom (+)" aria-label="Aumentar Zoom" class="hud-btn w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-base font-mono-tech">
+                    +
+                </button>
+            </div>
+
+            <!-- Botão Resetar Visão -->
+            <button id="btn-reset" class="hud-btn rounded-xl px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Resetar</span>
+            </button>
+
+            <!-- Botão Auto-Rotação -->
+            <button id="btn-autorotate" class="hud-btn rounded-xl px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 animate-spin" style="animation-duration: 8s;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a10 10 0 1010 10A10 10 0 0012 2zm0 18a8 8 0 118-8 8 8 0 01-8 8z" stroke-opacity="0.3"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 2a10 10 0 0110 10" />
+                </svg>
+                <span>Giro</span>
+            </button>
+
+            <!-- Botão Mobile para Mostrar/Ocultar Estados & Cidades -->
+            <button id="btn-mobile-all-cities" class="hud-btn sm:hidden rounded-xl px-2.5 py-1.5 text-xs font-medium">
+                <span>Todas Cidades</span>
+            </button>
+
+            <!-- Alternar Modo Grade / Wireframe Vetorial -->
+            <button id="btn-wireframe" class="hud-btn rounded-xl px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" />
+                    <path stroke-linecap="round" d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
+                </svg>
+                <span id="wireframe-label">Estilo: Vetor 3D Puro</span>
+            </button>
+
+            <!-- Alternar Inversão de Cores (Preto no Branco / Branco no Preto) -->
+            <button id="btn-invert" class="hud-btn rounded-xl px-2.5 py-1.5 text-xs font-medium flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <span>Inverter</span>
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * GLOBO TERRESTRE 3D MONOCROMÁTICO INTERATIVO (PAÍSES, ESTADOS E CIDADES)
+         * - Fronteiras de Países (TopoJSON)
+         * - Divisas Estaduais / UFs do Brasil (IBGE GeoJSON) e Admin-1 Global (Natural Earth)
+         * - Sistema de Nível de Detalhe (LOD) em 3 níveis para Cidades + Projeção HTML 2D com oclusão
+         * - Busca instantânea local + OpenStreetMap Nominatim + Geocodificação Reversa ao clicar
+         */
+
+        // --- CONFIGURAÇÕES E ESTADO GLOBAL ---
+        const GLOBE_RADIUS = 100;
+        const MIN_DISTANCE = 108;  // Zoom super próximo (1.08x do raio) para ver Estados e Cidades do interior com nitidez
+        const MAX_DISTANCE = 400;  // Visão orbital completa
+        const DEFAULT_DISTANCE = 215;
+
+        const state = {
+            autoRotate: false,
+            autoRotateSpeed: 0.0012,
+            inverted: false,      // false = Espaço escuro / Continentes claros | true = Fundo claro / Continentes escuros
+            styleMode: 1,         // 0 = Sólido + Vetor, 1 = Vetor 3D Puro, 2 = Pontilhado / Halftone
+            isDragging: false,
+            previousMousePosition: { x: 0, y: 0 },
+            // Coordenadas esféricas da câmera (iniciando focada no Brasil / Goiás)
+            cameraDistance: DEFAULT_DISTANCE,
+            targetDistance: DEFAULT_DISTANCE,
+            rotX: -0.28,          // Latitude inicial (~16°S)
+            rotY: -0.74,          // Longitude inicial (~48°O)
+            targetRotX: -0.28,
+            targetRotY: -0.74,
+            // Visibilidade de Camadas
+            showCountries: true,
+            showStates: true,
+            showStateLabels: true,
+            showCities: true,
+            showAllCities: false, // false = LOD automático por Zoom | true = mostra todas as cidades
+            showGraticule: true,
+            // Dados Geográficos carregados
+            worldData: null,
+            brazilStatesGeoJSON: null,
+            globalStatesGeoJSON: null,
+            pinchStartDist: 0,
+            selectedPlaceName: 'Catalão, GO • Brasil'
+        };
+
+        // --- BASE DE DADOS DOS 27 ESTADOS DO BRASIL (UFs) E GRANDES REGIÕES ---
+        const BRAZIL_STATES = [
+            { uf: "AC", name: "Acre", lat: -9.02, lon: -70.81 },
+            { uf: "AL", name: "Alagoas", lat: -9.57, lon: -36.78 },
+            { uf: "AP", name: "Amapá", lat: 1.41, lon: -51.77 },
+            { uf: "AM", name: "Amazonas", lat: -3.41, lon: -65.85 },
+            { uf: "BA", name: "Bahia", lat: -12.57, lon: -41.70 },
+            { uf: "CE", name: "Ceará", lat: -5.49, lon: -39.32 },
+            { uf: "DF", name: "Distrito Federal", lat: -15.79, lon: -47.88 },
+            { uf: "ES", name: "Espírito Santo", lat: -19.18, lon: -40.30 },
+            { uf: "GO", name: "Goiás", lat: -15.82, lon: -49.83 },
+            { uf: "MA", name: "Maranhão", lat: -4.96, lon: -45.27 },
+            { uf: "MT", name: "Mato Grosso", lat: -12.68, lon: -56.92 },
+            { uf: "MS", name: "Mato Grosso do Sul", lat: -20.77, lon: -54.78 },
+            { uf: "MG", name: "Minas Gerais", lat: -18.51, lon: -44.55 },
+            { uf: "PA", name: "Pará", lat: -3.41, lon: -52.14 },
+            { uf: "PB", name: "Paraíba", lat: -7.24, lon: -36.78 },
+            { uf: "PR", name: "Paraná", lat: -24.89, lon: -51.55 },
+            { uf: "PE", name: "Pernambuco", lat: -8.81, lon: -36.95 },
+            { uf: "PI", name: "Piauí", lat: -7.71, lon: -42.72 },
+            { uf: "RJ", name: "Rio de Janeiro", lat: -22.25, lon: -42.66 },
+            { uf: "RN", name: "Rio Grande do Norte", lat: -5.40, lon: -36.95 },
+            { uf: "RS", name: "Rio Grande do Sul", lat: -30.03, lon: -53.78 },
+            { uf: "RO", name: "Rondônia", lat: -10.83, lon: -63.34 },
+            { uf: "RR", name: "Roraima", lat: 2.73, lon: -62.07 },
+            { uf: "SC", name: "Santa Catarina", lat: -27.24, lon: -50.21 },
+            { uf: "SP", name: "São Paulo", lat: -22.19, lon: -48.79 },
+            { uf: "SE", name: "Sergipe", lat: -10.57, lon: -37.38 },
+            { uf: "TO", name: "Tocantins", lat: -10.17, lon: -48.29 }
+        ];
+
+        // --- BASE DE DADOS DE CIDADES EM 3 NÍVEIS DE DETALHE (LOD) ---
+        // tier 1: Metrópoles Globais (sempre visíveis)
+        // tier 2: Todas as 27 Capitais Brasileiras + Grandes Cidades Mundiais (visíveis em zoom médio)
+        // tier 3: Cidades Regionais e do Interior (visíveis ao aproximar o zoom)
+        const CITIES_DATABASE = [
+            // --- TIER 1: METRÓPOLES GLOBAIS & PRINCIPAIS CAPITAIS ---
+            { name: "São Paulo", state: "SP", country: "Brasil", lat: -23.5505, lon: -46.6333, tier: 1 },
+            { name: "Rio de Janeiro", state: "RJ", country: "Brasil", lat: -22.9068, lon: -43.1729, tier: 1 },
+            { name: "Brasília", state: "DF", country: "Brasil", lat: -15.7939, lon: -47.8828, tier: 1 },
+            { name: "Buenos Aires", state: "BA", country: "Argentina", lat: -34.6037, lon: -58.3816, tier: 1 },
+            { name: "Nova York", state: "NY", country: "EUA", lat: 40.7128, lon: -74.0060, tier: 1 },
+            { name: "Los Angeles", state: "CA", country: "EUA", lat: 34.0522, lon: -118.2437, tier: 1 },
+            { name: "Cidade do México", state: "CDMX", country: "México", lat: 19.4326, lon: -99.1332, tier: 1 },
+            { name: "Londres", state: "ENG", country: "Reino Unido", lat: 51.5074, lon: -0.1278, tier: 1 },
+            { name: "Paris", state: "IDF", country: "França", lat: 48.8566, lon: 2.3522, tier: 1 },
+            { name: "Madri", state: "MD", country: "Espanha", lat: 40.4168, lon: -3.7038, tier: 1 },
+            { name: "Lisboa", state: "LIS", country: "Portugal", lat: 38.7223, lon: -9.1393, tier: 1 },
+            { name: "Berlim", state: "BE", country: "Alemanha", lat: 52.5200, lon: 13.4050, tier: 1 },
+            { name: "Roma", state: "LAZ", country: "Itália", lat: 41.9028, lon: 12.4964, tier: 1 },
+            { name: "Moscou", state: "MOW", country: "Rússia", lat: 55.7558, lon: 37.6173, tier: 1 },
+            { name: "Cairo", state: "C", country: "Egito", lat: 30.0444, lon: 31.2357, tier: 1 },
+            { name: "Lagos", state: "LA", country: "Nigéria", lat: 6.5244, lon: 3.3792, tier: 1 },
+            { name: "Joanesburgo", state: "GP", country: "África do Sul", lat: -26.2041, lon: 28.0473, tier: 1 },
+            { name: "Dubai", state: "DU", country: "Emirados Árabes", lat: 25.2048, lon: 55.2708, tier: 1 },
+            { name: "Nova Déli", state: "DL", country: "Índia", lat: 28.6139, lon: 77.2090, tier: 1 },
+            { name: "Pequim", state: "BJ", country: "China", lat: 39.9042, lon: 116.4074, tier: 1 },
+            { name: "Xangai", state: "SH", country: "China", lat: 31.2304, lon: 121.4737, tier: 1 },
+            { name: "Tóquio", state: "TK", country: "Japão", lat: 35.6762, lon: 139.6503, tier: 1 },
+            { name: "Seul", state: "SEO", country: "Coreia do Sul", lat: 37.5665, lon: 126.9780, tier: 1 },
+            { name: "Sydney", state: "NSW", country: "Austrália", lat: -33.8688, lon: 151.2093, tier: 1 },
+
+            // --- TIER 2: TODAS AS CAPITAIS ESTADUAIS DO BRASIL & GRANDES CIDADES ---
+            { name: "Goiânia", state: "GO", country: "Brasil", lat: -16.6869, lon: -49.2648, tier: 2 },
+            { name: "Belo Horizonte", state: "MG", country: "Brasil", lat: -19.9167, lon: -43.9345, tier: 2 },
+            { name: "Salvador", state: "BA", country: "Brasil", lat: -12.9714, lon: -38.5014, tier: 2 },
+            { name: "Fortaleza", state: "CE", country: "Brasil", lat: -3.7172, lon: -38.5433, tier: 2 },
+            { name: "Curitiba", state: "PR", country: "Brasil", lat: -25.4284, lon: -49.2733, tier: 2 },
+            { name: "Manaus", state: "AM", country: "Brasil", lat: -3.1190, lon: -60.0217, tier: 2 },
+            { name: "Recife", state: "PE", country: "Brasil", lat: -8.0476, lon: -34.8770, tier: 2 },
+            { name: "Porto Alegre", state: "RS", country: "Brasil", lat: -30.0346, lon: -51.2177, tier: 2 },
+            { name: "Belém", state: "PA", country: "Brasil", lat: -1.4558, lon: -48.4902, tier: 2 },
+            { name: "Florianópolis", state: "SC", country: "Brasil", lat: -27.5954, lon: -48.5480, tier: 2 },
+            { name: "Vitória", state: "ES", country: "Brasil", lat: -20.3155, lon: -40.3128, tier: 2 },
+            { name: "Cuiabá", state: "MT", country: "Brasil", lat: -15.6014, lon: -56.0979, tier: 2 },
+            { name: "Campo Grande", state: "MS", country: "Brasil", lat: -20.4697, lon: -54.6201, tier: 2 },
+            { name: "Palmas", state: "TO", country: "Brasil", lat: -10.1689, lon: -48.3317, tier: 2 },
+            { name: "Teresina", state: "PI", country: "Brasil", lat: -5.0892, lon: -42.8019, tier: 2 },
+            { name: "São Luís", state: "MA", country: "Brasil", lat: -2.5307, lon: -44.3068, tier: 2 },
+            { name: "Natal", state: "RN", country: "Brasil", lat: -5.7945, lon: -35.2110, tier: 2 },
+            { name: "João Pessoa", state: "PB", country: "Brasil", lat: -7.1195, lon: -34.8450, tier: 2 },
+            { name: "Maceió", state: "AL", country: "Brasil", lat: -9.6658, lon: -35.7353, tier: 2 },
+            { name: "Aracaju", state: "SE", country: "Brasil", lat: -10.9472, lon: -37.0731, tier: 2 },
+            { name: "Porto Velho", state: "RO", country: "Brasil", lat: -8.7619, lon: -63.9039, tier: 2 },
+            { name: "Boa Vista", state: "RR", country: "Brasil", lat: 2.8235, lon: -60.6758, tier: 2 },
+            { name: "Macapá", state: "AP", country: "Brasil", lat: 0.0349, lon: -51.0694, tier: 2 },
+            { name: "Rio Branco", state: "AC", country: "Brasil", lat: -9.9754, lon: -67.8249, tier: 2 },
+            { name: "Santiago", state: "RM", country: "Chile", lat: -33.4489, lon: -70.6693, tier: 2 },
+            { name: "Bogotá", state: "DC", country: "Colômbia", lat: 4.7110, lon: -74.0721, tier: 2 },
+            { name: "Lima", state: "LIM", country: "Peru", lat: -12.0464, lon: -77.0428, tier: 2 },
+            { name: "Montevidéu", state: "MO", country: "Uruguai", lat: -34.9011, lon: -56.1645, tier: 2 },
+            { name: "Assunção", state: "ASU", country: "Paraguai", lat: -25.2637, lon: -57.5759, tier: 2 },
+            { name: "Miami", state: "FL", country: "EUA", lat: 25.7617, lon: -80.1918, tier: 2 },
+            { name: "Chicago", state: "IL", country: "EUA", lat: 41.8781, lon: -87.6298, tier: 2 },
+            { name: "Toronto", state: "ON", country: "Canadá", lat: 43.6532, lon: -79.3832, tier: 2 },
+
+            // --- TIER 3: CIDADES DO INTERIOR E POLOS REGIONAIS (GOIÁS, MG, SP E BRASIL) ---
+            { name: "Catalão", state: "GO", country: "Brasil", lat: -18.1658, lon: -47.9467, tier: 3 },
+            { name: "Ouvidor", state: "GO", country: "Brasil", lat: -18.2344, lon: -47.8389, tier: 3 },
+            { name: "Três Ranchos", state: "GO", country: "Brasil", lat: -18.3539, lon: -47.7825, tier: 3 },
+            { name: "Ipameri", state: "GO", country: "Brasil", lat: -17.7219, lon: -48.1597, tier: 3 },
+            { name: "Pires do Rio", state: "GO", country: "Brasil", lat: -17.2997, lon: -48.2794, tier: 3 },
+            { name: "Caldas Novas", state: "GO", country: "Brasil", lat: -17.7444, lon: -48.6250, tier: 3 },
+            { name: "Morrinhos", state: "GO", country: "Brasil", lat: -17.7311, lon: -49.0994, tier: 3 },
+            { name: "Itumbiara", state: "GO", country: "Brasil", lat: -18.4192, lon: -49.2153, tier: 3 },
+            { name: "Rio Verde", state: "GO", country: "Brasil", lat: -17.7928, lon: -50.9192, tier: 3 },
+            { name: "Jataí", state: "GO", country: "Brasil", lat: -17.8814, lon: -51.7144, tier: 3 },
+            { name: "Anápolis", state: "GO", country: "Brasil", lat: -16.3281, lon: -48.9531, tier: 3 },
+            { name: "Cristalina", state: "GO", country: "Brasil", lat: -16.7686, lon: -47.6136, tier: 3 },
+            { name: "Luziânia", state: "GO", country: "Brasil", lat: -16.2525, lon: -47.9503, tier: 3 },
+            { name: "Formosa", state: "GO", country: "Brasil", lat: -15.5372, lon: -47.3344, tier: 3 },
+            { name: "Porangatu", state: "GO", country: "Brasil", lat: -13.4408, lon: -49.1486, tier: 3 },
+            { name: "Uberlândia", state: "MG", country: "Brasil", lat: -18.9186, lon: -48.2772, tier: 3 },
+            { name: "Araguari", state: "MG", country: "Brasil", lat: -18.6472, lon: -48.1869, tier: 3 },
+            { name: "Uberaba", state: "MG", country: "Brasil", lat: -19.7472, lon: -47.9319, tier: 3 },
+            { name: "Patos de Minas", state: "MG", country: "Brasil", lat: -18.5789, lon: -46.5181, tier: 3 },
+            { name: "Paracatu", state: "MG", country: "Brasil", lat: -17.2222, lon: -46.8747, tier: 3 },
+            { name: "Araxá", state: "MG", country: "Brasil", lat: -19.5933, lon: -46.9406, tier: 3 },
+            { name: "Juiz de Fora", state: "MG", country: "Brasil", lat: -21.7642, lon: -43.3503, tier: 3 },
+            { name: "Montes Claros", state: "MG", country: "Brasil", lat: -16.7350, lon: -43.8617, tier: 3 },
+            { name: "Governador Valadares", state: "MG", country: "Brasil", lat: -18.8511, lon: -41.9494, tier: 3 },
+            { name: "Campinas", state: "SP", country: "Brasil", lat: -22.9099, lon: -47.0626, tier: 3 },
+            { name: "Ribeirão Preto", state: "SP", country: "Brasil", lat: -21.1704, lon: -47.8103, tier: 3 },
+            { name: "São José do Rio Preto", state: "SP", country: "Brasil", lat: -20.8197, lon: -49.3794, tier: 3 },
+            { name: "Santos", state: "SP", country: "Brasil", lat: -23.9618, lon: -46.3322, tier: 3 },
+            { name: "São José dos Campos", state: "SP", country: "Brasil", lat: -23.2237, lon: -45.9009, tier: 3 },
+            { name: "Sorocaba", state: "SP", country: "Brasil", lat: -23.5015, lon: -47.4526, tier: 3 },
+            { name: "Bauru", state: "SP", country: "Brasil", lat: -22.3145, lon: -49.0587, tier: 3 },
+            { name: "Presidente Prudente", state: "SP", country: "Brasil", lat: -22.1256, lon: -51.3889, tier: 3 },
+            { name: "Niterói", state: "RJ", country: "Brasil", lat: -22.8832, lon: -43.1034, tier: 3 },
+            { name: "Petrópolis", state: "RJ", country: "Brasil", lat: -22.5050, lon: -43.1786, tier: 3 },
+            { name: "Campos dos Goytacazes", state: "RJ", country: "Brasil", lat: -21.7522, lon: -41.3303, tier: 3 },
+            { name: "Londrina", state: "PR", country: "Brasil", lat: -23.3045, lon: -51.1696, tier: 3 },
+            { name: "Maringá", state: "PR", country: "Brasil", lat: -23.4205, lon: -51.9331, tier: 3 },
+            { name: "Foz do Iguaçu", state: "PR", country: "Brasil", lat: -25.5478, lon: -54.5882, tier: 3 },
+            { name: "Joinville", state: "SC", country: "Brasil", lat: -26.3044, lon: -48.8487, tier: 3 },
+            { name: "Blumenau", state: "SC", country: "Brasil", lat: -26.9194, lon: -49.0661, tier: 3 },
+            { name: "Caxias do Sul", state: "RS", country: "Brasil", lat: -29.1678, lon: -51.1794, tier: 3 },
+            { name: "Pelotas", state: "RS", country: "Brasil", lat: -31.7654, lon: -52.3376, tier: 3 },
+            { name: "Santa Maria", state: "RS", country: "Brasil", lat: -29.6842, lon: -53.8069, tier: 3 },
+            { name: "Feira de Santana", state: "BA", country: "Brasil", lat: -12.2664, lon: -38.9663, tier: 3 },
+            { name: "Vitória da Conquista", state: "BA", country: "Brasil", lat: -14.8619, lon: -40.8444, tier: 3 },
+            { name: "Barreiras", state: "BA", country: "Brasil", lat: -12.1528, lon: -44.9900, tier: 3 },
+            { name: "Petrolina", state: "PE", country: "Brasil", lat: -9.3891, lon: -40.5030, tier: 3 },
+            { name: "Caruaru", state: "PE", country: "Brasil", lat: -8.2833, lon: -35.9761, tier: 3 },
+            { name: "Campina Grande", state: "PB", country: "Brasil", lat: -7.2306, lon: -35.8811, tier: 3 },
+            { name: "Juazeiro do Norte", state: "CE", country: "Brasil", lat: -7.2131, lon: -39.3153, tier: 3 },
+            { name: "Imperatriz", state: "MA", country: "Brasil", lat: -5.5264, lon: -47.4917, tier: 3 },
+            { name: "Santarém", state: "PA", country: "Brasil", lat: -2.4431, lon: -54.7083, tier: 3 },
+            { name: "Marabá", state: "PA", country: "Brasil", lat: -5.3686, lon: -49.1178, tier: 3 },
+            { name: "Araguaína", state: "TO", country: "Brasil", lat: -7.1911, lon: -48.2072, tier: 3 },
+            { name: "Rondonópolis", state: "MT", country: "Brasil", lat: -16.4708, lon: -54.6356, tier: 3 },
+            { name: "Sinop", state: "MT", country: "Brasil", lat: -11.8642, lon: -55.5025, tier: 3 },
+            { name: "Dourados", state: "MS", country: "Brasil", lat: -22.2211, lon: -54.8056, tier: 3 }
+        ];
+
+        // --- REFERÊNCIAS DA CENA THREE.JS E RÓTULOS 2D ---
+        let scene, camera, renderer, raycaster, mouse;
+        let globeGroup, earthMesh, atmosphereMesh, graticuleLines, borderLines, stateBorderLines, starField, markerGroup;
+        let selectionPinMesh, selectionRingMesh;
+        let earthCanvas, earthCtx, earthTexture;
+
+        const stateLabelItems = []; // { uf, name, lat, lon, localVec, el }
+        const cityLabelItems = [];  // { name, state, country, lat, lon, tier, isCustom, localVec, el, meshDot }
+        const _tempWorldPos = new THREE.Vector3();
+        const _tempNormal = new THREE.Vector3();
+        const _camToGlobeDir = new THREE.Vector3();
+
+        // --- CONVERSÃO DE LATITUDE/LONGITUDE PARA VETOR 3D ---
+        function latLonToVector3(lat, lon, radius) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lon + 180) * (Math.PI / 180);
+
+            const x = -(radius * Math.sin(phi) * Math.cos(theta));
+            const z = (radius * Math.sin(phi) * Math.sin(theta));
+            const y = (radius * Math.cos(phi));
+
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // --- CONVERSÃO DE PONTO 3D NO GLOBO PARA LATITUDE/LONGITUDE ---
+        function vector3ToLatLon(localPoint) {
+            const normalized = localPoint.clone().normalize();
+            const lat = 90 - (Math.acos(normalized.y) * 180 / Math.PI);
+            const lon = ((Math.atan2(normalized.z, -normalized.x) * 180 / Math.PI) - 180);
+            const cleanLon = lon < -180 ? lon + 360 : lon;
+            return { lat, lon: cleanLon };
+        }
+
+        // --- INICIALIZAÇÃO DA APLICAÇÃO ---
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            // 1. Cena
+            scene = new THREE.Scene();
+
+            // 2. Câmera Perspectiva (near ajustado para 0.5 para permitir super zoom na superfície)
+            camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.5, 2000);
+            camera.position.set(0, 0, state.cameraDistance);
+
+            // 3. Renderizador WebGL
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setClearColor(0x050505, 1);
+            container.appendChild(renderer.domElement);
+
+            // 4. Iluminação Monocromática
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
+            scene.add(ambientLight);
+
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.82);
+            dirLight1.position.set(220, 160, 200);
+            scene.add(dirLight1);
+
+            const rimLight = new THREE.DirectionalLight(0xffffff, 0.35);
+            rimLight.position.set(-200, -120, -180);
+            scene.add(rimLight);
+
+            // 5. Grupo Principal do Globo
+            globeGroup = new THREE.Group();
+            scene.add(globeGroup);
+
+            // 6. Criar Textura Dinâmica de Alta Resolução (Canvas 4096x2048)
+            earthCanvas = document.createElement('canvas');
+            earthCanvas.width = 4096;
+            earthCanvas.height = 2048;
+            earthCtx = earthCanvas.getContext('2d');
+
+            earthTexture = new THREE.CanvasTexture(earthCanvas);
+            earthTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+            earthTexture.needsUpdate = true;
+
+            // 7. Esfera Principal da Terra
+            const earthGeo = new THREE.SphereGeometry(GLOBE_RADIUS, 112, 112);
+            const earthMat = new THREE.MeshPhongMaterial({
+                map: earthTexture,
+                shininess: 12,
+                specular: new THREE.Color(0x2a2a2a),
+                transparent: true,
+                opacity: 1.0
+            });
+            earthMesh = new THREE.Mesh(earthGeo, earthMat);
+            globeGroup.add(earthMesh);
+
+            // 8. Atmosfera Fresnel
+            createAtmosphere();
+
+            // 9. Grade Geodésica
+            createGraticuleGrid();
+
+            // 10. Inicializar Rótulos de Estados (27 UFs), Marcadores de Cidades e Pino de Seleção
+            initStateLabels();
+            createCityMarkersAndLabels();
+            createSelectionMarker();
+
+            // 11. Campo Estelar 3D
+            createStarField();
+
+            // 12. Raycaster
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // 13. Carregar Países, Estados do Brasil (IBGE) e Estados Globais (Admin-1)
+            renderProceduralFallbackTexture();
+            loadAllGeographicLayers();
+
+            // 14. Registrar Eventos de Mouse, Toque, Busca e Camadas
+            setupEventListeners();
+            setupSearchUI();
+            setupLayerToggles();
+            applyVisualTheme();
+            updateZoomHUD();
+            window.parent.postMessage({ type: 'GLOBE_READY' }, '*');
+        }
+
+        // --- CRIAR BRILHO ATMOSFÉRICO (SHADER FRESNEL MONOCROMÁTICO) ---
+        function createAtmosphere() {
+            const atmosGeo = new THREE.SphereGeometry(GLOBE_RADIUS * 1.11, 64, 64);
+            const atmosMat = new THREE.ShaderMaterial({
+                vertexShader: `
+                    varying vec3 vNormal;
+                    void main() {
+                        vNormal = normalize(normalMatrix * normal);
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform vec3 glowColor;
+                    uniform float intensityFactor;
+                    varying vec3 vNormal;
+                    void main() {
+                        float intensity = pow(0.62 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.2);
+                        gl_FragColor = vec4(glowColor, 1.0) * intensity * intensityFactor;
+                    }
+                `,
+                uniforms: {
+                    glowColor: { value: new THREE.Color(0xffffff) },
+                    intensityFactor: { value: 0.72 }
+                },
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide,
+                transparent: true,
+                depthWrite: false
+            });
+
+            atmosphereMesh = new THREE.Mesh(atmosGeo, atmosMat);
+            scene.add(atmosphereMesh);
+        }
+
+        // --- CRIAR GRADE DE LATITUDE E LONGITUDE 3D (GRATICULE) ---
+        function createGraticuleGrid() {
+            if (graticuleLines) globeGroup.remove(graticuleLines);
+
+            const vertices = [];
+            const r = GLOBE_RADIUS * 1.0012;
+
+            for (let lat = -75; lat <= 75; lat += 15) {
+                const step = 3;
+                for (let lon = -180; lon < 180; lon += step) {
+                    const p1 = latLonToVector3(lat, lon, r);
+                    const p2 = latLonToVector3(lat, lon + step, r);
+                    vertices.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                }
+            }
+
+            for (let lon = -180; lon < 180; lon += 15) {
+                const step = 3;
+                for (let lat = -80; lat < 80; lat += step) {
+                    const p1 = latLonToVector3(lat, lon, r);
+                    const p2 = latLonToVector3(lat + step, lon, r);
+                    vertices.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                }
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+            const mat = new THREE.LineBasicMaterial({
+                color: state.inverted ? 0x000000 : 0xffffff,
+                transparent: true,
+                opacity: 0.11
+            });
+
+            graticuleLines = new THREE.LineSegments(geo, mat);
+            graticuleLines.visible = state.showGraticule;
+            globeGroup.add(graticuleLines);
+        }
+
+        // --- CRIAR RÓTULOS 2D DE ESTADOS (27 UFs DO BRASIL) ---
+        function initStateLabels() {
+            const labelsContainer = document.getElementById('labels-container');
+            stateLabelItems.forEach(item => item.el.remove());
+            stateLabelItems.length = 0;
+
+            BRAZIL_STATES.forEach(st => {
+                const el = document.createElement('div');
+                el.className = 'geo-label geo-label-state';
+                el.textContent = st.uf;
+                el.title = `Estado: ${st.name} (${st.uf}) — Clique para dar zoom`;
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    focusLocation(st.lat, st.lon, `Estado: ${st.name} (${st.uf})`, 132);
+                });
+                labelsContainer.appendChild(el);
+
+                stateLabelItems.push({
+                    uf: st.uf,
+                    name: st.name,
+                    lat: st.lat,
+                    lon: st.lon,
+                    localVec: latLonToVector3(st.lat, st.lon, GLOBE_RADIUS * 1.003),
+                    el
+                });
+            });
+        }
+
+        // --- CRIAR MARCADORES 3D E RÓTULOS 2D DE CIDADES (3 TIERS DE DETALHE) ---
+        function createCityMarkersAndLabels() {
+            if (markerGroup) globeGroup.remove(markerGroup);
+            markerGroup = new THREE.Group();
+            globeGroup.add(markerGroup);
+
+            const labelsContainer = document.getElementById('labels-container');
+            cityLabelItems.forEach(item => item.el.remove());
+            cityLabelItems.length = 0;
+
+            CITIES_DATABASE.forEach(city => {
+                addCityToGlobe(city, false);
+            });
+        }
+
+        function addCityToGlobe(city, isCustom = false) {
+            const labelsContainer = document.getElementById('labels-container');
+            const pos = latLonToVector3(city.lat, city.lon, GLOBE_RADIUS * 1.0035);
+
+            // Ponto 3D na superfície da esfera
+            const meshDot = null; // Bolinhas 3D removidas para não cobrir o mapa
+
+            // Elemento HTML 2D projetado
+            const el = document.createElement('div');
+            el.className = `geo-label geo-label-city tier-${city.tier || 3} ${isCustom ? 'custom-pin' : ''}`;
+            const stateSuffix = city.state && city.country === 'Brasil' ? ` • ${city.state}` : '';
+            el.innerHTML = `<span class="city-dot"></span><span>${city.name}${city.tier === 3 ? stateSuffix : ''}</span>`;
+            el.title = `${city.name}${city.state ? ', ' + city.state : ''} (${city.country || ''})`;
+
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const targetDist = city.tier === 1 ? 138 : (city.tier === 2 ? 124 : 114);
+                focusLocation(
+                    city.lat,
+                    city.lon,
+                    `${city.name}${city.state ? ', ' + city.state : ''} • ${city.country || ''}`,
+                    targetDist
+                );
+            });
+
+            labelsContainer.appendChild(el);
+
+            cityLabelItems.push({
+                name: city.name,
+                state: city.state || '',
+                country: city.country || '',
+                lat: city.lat,
+                lon: city.lon,
+                tier: city.tier || 3,
+                isCustom,
+                localVec: pos,
+                el,
+                meshDot
+            });
+        }
+
+        // --- CRIAR PINO DE SELEÇÃO QUANDO O USUÁRIO CLICA OU BUSCA NO GLOBO ---
+        function createSelectionMarker() {
+            const pinGroup = new THREE.Group();
+
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0, 6.5)
+            ]);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff });
+            selectionPinMesh = new THREE.Line(lineGeo, lineMat);
+
+            const ringGeo = new THREE.RingGeometry(0.9, 1.55, 32);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.95
+            });
+            selectionRingMesh = new THREE.Mesh(ringGeo, ringMat);
+
+            pinGroup.add(selectionPinMesh);
+            pinGroup.add(selectionRingMesh);
+
+            placeSelectionPin(-18.1658, -47.9467);
+            globeGroup.add(pinGroup);
+            pinGroup.visible = false;
+            selectionPinMesh.parentGroup = pinGroup;
+        }
+
+        function placeSelectionPin(lat, lon) {
+            if (!selectionPinMesh || !selectionPinMesh.parentGroup) return;
+            const grp = selectionPinMesh.parentGroup;
+            const pos = latLonToVector3(lat, lon, GLOBE_RADIUS * 1.004);
+            grp.position.copy(pos);
+            grp.lookAt(pos.clone().multiplyScalar(2));
+        }
+
+        // --- CRIAR CAMPO DE ESTRELAS 3D NO FUNDO ---
+        function createStarField() {
+            const starCount = 1800;
+            const positions = new Float32Array(starCount * 3);
+
+            for (let i = 0; i < starCount; i++) {
+                const r = 600 + Math.random() * 600;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+
+                positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                positions[i * 3 + 2] = r * Math.cos(phi);
+            }
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            const mat = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 1.5,
+                transparent: true,
+                opacity: 0.65
+            });
+
+            starField = new THREE.Points(geo, mat);
+            scene.add(starField);
+        }
+
+        // --- CARREGAR TODAS AS CAMADAS GEOGRÁFICAS (PAÍSES + ESTADOS DO BRASIL + ESTADOS GLOBAIS) ---
+        async function loadAllGeographicLayers() {
+            const indicator = document.getElementById('data-loading-indicator');
+
+            // 1. Carregar Países (tenta 50m de alta precisão primeiro, fallback para 110m)
+            try {
+                let res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json');
+                if (!res.ok) {
+                    res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+                }
+                const topology = await res.json();
+                state.worldData = topology;
+                renderGeoTextureFromTopology(topology);
+                build3DBorderVectors(topology);
+            } catch (err) {
+                console.warn('Erro ao carregar fronteiras de países:', err);
+            }
+
+            // 2. Carregar Estados do Brasil (27 UFs via API Oficial de Malhas do IBGE + Fallback GeoJSON)
+            try {
+                let brStates = null;
+                try {
+                    const ibgeRes = await fetch('https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo+json&qualidade=intermediaria&intrarregiao=UF');
+                    if (ibgeRes.ok) brStates = await ibgeRes.json();
+                } catch (_) {}
+
+                if (!brStates) {
+                    const fallbackRes = await fetch('https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson');
+                    if (fallbackRes.ok) brStates = await fallbackRes.json();
+                }
+
+                if (brStates) {
+                    state.brazilStatesGeoJSON = brStates;
+                }
+            } catch (err) {
+                console.warn('Aviso ao carregar estados do Brasil:', err);
+            }
+
+            // 3. Carregar Divisas Estaduais / Províncias Globais (Natural Earth Admin-1)
+            try {
+                const globalAdminRes = await fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_1_states_provinces_lines.geojson');
+                if (globalAdminRes.ok) {
+                    state.globalStatesGeoJSON = await globalAdminRes.json();
+                }
+            } catch (err) {
+                console.warn('Aviso ao carregar divisas Admin-1 globais:', err);
+            }
+
+            // Re-renderizar textura 4K com estados e construir malha 3D de estados
+            if (state.worldData) {
+                renderGeoTextureFromTopology(state.worldData);
+            }
+            build3DStateVectors();
+
+            if (indicator) {
+                indicator.textContent = '27 UFs + GLOBAL';
+            }
+        }
+
+        // --- DESENHAR TEXTURA DOS CONTINENTES, PAÍSES E ESTADOS NO CANVAS 4K ---
+        function renderGeoTextureFromTopology(topology) {
+            const w = earthCanvas.width;
+            const h = earthCanvas.height;
+            const ctx = earthCtx;
+
+            const isInv = state.inverted;
+            const oceanColor = isInv ? '#f2f2f5' : '#08080a';
+            const landColor = isInv ? '#141418' : '#e6e6eb';
+            const countryStrokeColor = isInv ? '#f2f2f5' : '#08080a';
+            const stateStrokeColor = isInv ? 'rgba(255,255,255,0.45)' : 'rgba(10,10,14,0.48)';
+
+            ctx.fillStyle = oceanColor;
+            ctx.fillRect(0, 0, w, h);
+
+            // Linhas sutis de equador e trópicos
+            ctx.strokeStyle = isInv ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = 1.5;
+            [0, 23.43, -23.43, 66.56, -66.56].forEach(lat => {
+                const y = ((90 - lat) / 180) * h;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            });
+
+            if (!topology || typeof topojson === 'undefined') return;
+
+            const countries = topojson.feature(topology, topology.objects.countries);
+
+            let fillPattern = landColor;
+            if (state.styleMode === 2) {
+                const patCanvas = document.createElement('canvas');
+                patCanvas.width = 14;
+                patCanvas.height = 14;
+                const pCtx = patCanvas.getContext('2d');
+                pCtx.fillStyle = oceanColor;
+                pCtx.fillRect(0, 0, 14, 14);
+                pCtx.fillStyle = landColor;
+                pCtx.beginPath();
+                pCtx.arc(7, 7, 3.8, 0, Math.PI * 2);
+                pCtx.fill();
+                fillPattern = ctx.createPattern(patCanvas, 'repeat');
+            }
+
+            ctx.fillStyle = fillPattern;
+            ctx.strokeStyle = state.showCountries ? countryStrokeColor : 'transparent';
+            ctx.lineWidth = 2.0;
+            ctx.lineJoin = 'round';
+
+            countries.features.forEach(feature => {
+                const geom = feature.geometry;
+                if (!geom) return;
+
+                if (geom.type === 'Polygon') {
+                    drawPolygon2D(ctx, geom.coordinates, w, h, true);
+                } else if (geom.type === 'MultiPolygon') {
+                    geom.coordinates.forEach(poly => drawPolygon2D(ctx, poly, w, h, true));
+                }
+            });
+
+            // Desenhar divisas estaduais do Brasil também na textura 4K para nitidez máxima
+            if (state.showStates && state.brazilStatesGeoJSON && state.brazilStatesGeoJSON.features) {
+                ctx.strokeStyle = stateStrokeColor;
+                ctx.lineWidth = 1.3;
+                state.brazilStatesGeoJSON.features.forEach(feat => {
+                    const geom = feat.geometry;
+                    if (!geom) return;
+                    if (geom.type === 'Polygon') {
+                        drawPolygon2D(ctx, geom.coordinates, w, h, false);
+                    } else if (geom.type === 'MultiPolygon') {
+                        geom.coordinates.forEach(poly => drawPolygon2D(ctx, poly, w, h, false));
+                    }
+                });
+            }
+
+            earthTexture.needsUpdate = true;
+        }
+
+        function drawPolygon2D(ctx, rings, w, h, doFill = true) {
+            ctx.beginPath();
+            rings.forEach(ring => {
+                for (let i = 0; i < ring.length; i++) {
+                    const lon = ring[i][0];
+                    const lat = ring[i][1];
+                    const x = ((lon + 180) / 360) * w;
+                    const y = ((90 - lat) / 180) * h;
+
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        const prevLon = ring[i - 1][0];
+                        if (Math.abs(lon - prevLon) > 180) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                }
+                ctx.closePath();
+            });
+            if (doFill) ctx.fill();
+            ctx.stroke();
+        }
+
+        // --- CONSTRUIR LINHAS VETORIAIS 3D DAS COSTAS E FRONTEIRAS DE PAÍSES ---
+        function build3DBorderVectors(topology) {
+            if (!topology || typeof topojson === 'undefined') return;
+            if (borderLines) globeGroup.remove(borderLines);
+
+            const mesh = topojson.mesh(topology, topology.objects.countries);
+            const vertices = [];
+            const r = GLOBE_RADIUS * 1.0025;
+
+            mesh.coordinates.forEach(line => {
+                for (let i = 0; i < line.length - 1; i++) {
+                    const p1 = latLonToVector3(line[i][1], line[i][0], r);
+                    const p2 = latLonToVector3(line[i + 1][1], line[i + 1][0], r);
+                    vertices.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                }
+            });
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+            const isWireframeOnly = state.styleMode === 1;
+            const mat = new THREE.LineBasicMaterial({
+                color: isWireframeOnly
+                    ? (state.inverted ? 0x0a0a0c : 0xffffff)
+                    : (state.inverted ? 0xffffff : 0x1e1e24),
+                transparent: true,
+                opacity: isWireframeOnly ? 0.92 : 0.62
+            });
+
+            borderLines = new THREE.LineSegments(geo, mat);
+            borderLines.visible = state.showCountries;
+            globeGroup.add(borderLines);
+        }
+
+        // --- CONSTRUIR LINHAS VETORIAIS 3D DAS DIVISAS DE ESTADOS (BRASIL + MUNDO) ---
+        function build3DStateVectors() {
+            if (stateBorderLines) globeGroup.remove(stateBorderLines);
+
+            const vertices = [];
+            const r = GLOBE_RADIUS * 1.0022;
+
+            function appendRingVertices(ring) {
+                for (let i = 0; i < ring.length - 1; i++) {
+                    const lon1 = ring[i][0], lat1 = ring[i][1];
+                    const lon2 = ring[i + 1][0], lat2 = ring[i + 1][1];
+                    if (Math.abs(lon1 - lon2) > 180) continue;
+                    const p1 = latLonToVector3(lat1, lon1, r);
+                    const p2 = latLonToVector3(lat2, lon2, r);
+                    vertices.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                }
+            }
+
+            function processGeoJSONFeatures(geojson) {
+                if (!geojson || !geojson.features) return;
+                geojson.features.forEach(feat => {
+                    const geom = feat.geometry;
+                    if (!geom) return;
+                    if (geom.type === 'LineString') {
+                        appendRingVertices(geom.coordinates);
+                    } else if (geom.type === 'MultiLineString' || geom.type === 'Polygon') {
+                        geom.coordinates.forEach(ring => appendRingVertices(ring));
+                    } else if (geom.type === 'MultiPolygon') {
+                        geom.coordinates.forEach(poly => poly.forEach(ring => appendRingVertices(ring)));
+                    }
+                });
+            }
+
+            processGeoJSONFeatures(state.brazilStatesGeoJSON);
+            processGeoJSONFeatures(state.globalStatesGeoJSON);
+
+            if (vertices.length === 0) return;
+
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+            const isWireframeOnly = state.styleMode === 1;
+            const mat = new THREE.LineBasicMaterial({
+                color: isWireframeOnly
+                    ? (state.inverted ? 0x333338 : 0xa0a0ab)
+                    : (state.inverted ? 0xd4d4d8 : 0x52525b),
+                transparent: true,
+                opacity: isWireframeOnly ? 0.65 : 0.72
+            });
+
+            stateBorderLines = new THREE.LineSegments(geo, mat);
+            stateBorderLines.visible = state.showStates;
+            globeGroup.add(stateBorderLines);
+        }
+
+        // --- FALLBACK IMEDIATO ENQUANTO O TOPOJSON É CARREGADO ---
+        function renderProceduralFallbackTexture() {
+            const w = earthCanvas.width;
+            const h = earthCanvas.height;
+            earthCtx.fillStyle = '#08080a';
+            earthCtx.fillRect(0, 0, w, h);
+            earthTexture.needsUpdate = true;
+        }
+
+        // --- ATUALIZAR TEMA E ESTILO MONOCROMÁTICO ---
+        function applyVisualTheme() {
+            const isInv = state.inverted;
+
+            document.body.classList.toggle('theme-inverted', isInv);
+            renderer.setClearColor(isInv ? 0xebebf0 : 0x050505, 1);
+
+            if (atmosphereMesh) {
+                atmosphereMesh.material.uniforms.glowColor.value.setHex(isInv ? 0x222222 : 0xffffff);
+                atmosphereMesh.material.uniforms.intensityFactor.value = isInv ? 0.25 : 0.72;
+            }
+
+            if (starField) {
+                starField.material.color.setHex(isInv ? 0x333333 : 0xffffff);
+                starField.material.opacity = isInv ? 0.22 : 0.65;
+            }
+
+            if (state.styleMode === 1) {
+                earthMesh.material.opacity = 0.90;
+                earthCtx.fillStyle = isInv ? '#f2f2f5' : '#070709';
+                earthCtx.fillRect(0, 0, earthCanvas.width, earthCanvas.height);
+                earthTexture.needsUpdate = true;
+            } else {
+                earthMesh.material.opacity = 1.0;
+                if (state.worldData) {
+                    renderGeoTextureFromTopology(state.worldData);
+                }
+            }
+
+            if (state.worldData) build3DBorderVectors(state.worldData);
+            build3DStateVectors();
+            createGraticuleGrid();
+
+            // Atualizar cor dos pontos 3D de cidades
+            cityLabelItems.forEach(item => {
+                if (item.meshDot) {
+                    item.meshDot.material.color.setHex(isInv ? 0x09090b : 0xffffff);
+                }
+            });
+
+            if (selectionPinMesh && selectionRingMesh) {
+                const pinCol = isInv ? 0x000000 : 0xffffff;
+                selectionPinMesh.material.color.setHex(pinCol);
+                selectionRingMesh.material.color.setHex(pinCol);
+            }
+        }
+
+        // --- FOCAR CÂMERA EM UMA COORDENADA ESPECÍFICA (FLY-TO SUAVE PELO CAMINHO MAIS CURTO) ---
+        function focusLocation(lat, lon, label, customDistance = 135) {
+            state.autoRotate = false;
+            updateAutoRotateButton();
+
+            const targetX = lat * (Math.PI / 180);
+            let targetY = -(lon + 90) * (Math.PI / 180);
+
+            // Garante rotação pelo menor ângulo azimutal
+            const currentY = state.rotY;
+            const diffY = ((targetY - currentY + Math.PI) % (Math.PI * 2)) - Math.PI;
+            targetY = currentY + (diffY < -Math.PI ? diffY + Math.PI * 2 : diffY);
+
+            state.targetRotX = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, targetX));
+            state.targetRotY = targetY;
+            state.targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, customDistance));
+
+            placeSelectionPin(lat, lon);
+            updateCoordsHUD(lat, lon, label);
+            updateZoomHUD();
+
+            if (label) showToast(`${label}`);
+        }
+
+        function showToast(text) {
+            const toast = document.getElementById('location-toast');
+            const toastText = document.getElementById('location-toast-text');
+            toastText.textContent = text;
+            toast.classList.remove('opacity-0', 'translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            clearTimeout(showToast.timer);
+            showToast.timer = setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-2');
+            }, 3000);
+        }
+
+        function formatLatLon(lat, lon) {
+            const latDir = lat >= 0 ? 'N' : 'S';
+            const lonDir = lon >= 0 ? 'L' : 'O';
+            return `${Math.abs(lat).toFixed(2)}° ${latDir}, ${Math.abs(lon).toFixed(2)}° ${lonDir}`;
+        }
+
+        // Encontra a cidade/estado cadastrado mais próximo para exibir no HUD instantaneamente
+        function findNearestLocalPlace(lat, lon) {
+            let bestCity = null;
+            let minCityDist = Infinity;
+
+            for (let i = 0; i < cityLabelItems.length; i++) {
+                const c = cityLabelItems[i];
+                const d = Math.hypot(c.lat - lat, c.lon - lon);
+                if (d < minCityDist) {
+                    minCityDist = d;
+                    bestCity = c;
+                }
+            }
+
+            if (bestCity && minCityDist < 2.2) {
+                return `${bestCity.name}${bestCity.state ? ', ' + bestCity.state : ''} • ${bestCity.country}`;
+            }
+
+            let bestState = null;
+            let minStateDist = Infinity;
+            for (let i = 0; i < BRAZIL_STATES.length; i++) {
+                const st = BRAZIL_STATES[i];
+                const d = Math.hypot(st.lat - lat, st.lon - lon);
+                if (d < minStateDist) {
+                    minStateDist = d;
+                    bestState = st;
+                }
+            }
+
+            if (bestState && minStateDist < 6.5) {
+                return `Estado: ${bestState.name} (${bestState.uf}) • Brasil`;
+            }
+
+            return 'Oceano / Coordenada Global';
+        }
+
+        function updateCoordsHUD(lat, lon, explicitLabel = null) {
+            document.getElementById('hud-coords').textContent = formatLatLon(lat, lon);
+            const placeEl = document.getElementById('hud-place-name');
+            if (explicitLabel) {
+                state.selectedPlaceName = explicitLabel;
+                placeEl.textContent = explicitLabel;
+            } else {
+                placeEl.textContent = findNearestLocalPlace(lat, lon);
+            }
+        }
+
+        function updateZoomHUD() {
+            const ratio = (MAX_DISTANCE - state.targetDistance) / (MAX_DISTANCE - MIN_DISTANCE);
+            const pct = Math.round(50 + ratio * 350); // 50% a 400%
+            const altitudeKm = Math.max(120, Math.round(((state.targetDistance - GLOBE_RADIUS) / GLOBE_RADIUS) * 6371));
+
+            document.getElementById('hud-zoom').textContent = `${pct}% (${altitudeKm.toLocaleString('pt-BR')} km)`;
+
+            const lodEl = document.getElementById('hud-lod-tier');
+            if (state.showAllCities) {
+                lodEl.textContent = 'LOD MAX • Todas Cidades';
+            } else if (state.targetDistance <= 165) {
+                lodEl.textContent = 'LOD 3 • Estados & Interior';
+            } else if (state.targetDistance <= 240) {
+                lodEl.textContent = 'LOD 2 • Estados & Capitais';
+            } else {
+                lodEl.textContent = 'LOD 1 • Metrópoles Globais';
+            }
+
+            const slider = document.getElementById('zoom-slider');
+            if (slider) {
+                slider.value = Math.round(ratio * 100);
+            }
+        }
+
+        function updateAutoRotateButton() {
+            const btn = document.getElementById('btn-autorotate');
+            btn.classList.toggle('active', state.autoRotate);
+        }
+
+        // --- BARRA DE BUSCA DE CIDADES E ESTADOS (AUTOCOMPLETE LOCAL + NOMINATIM MUNDIAL) ---
+        function setupSearchUI() {
+            const input = document.getElementById('city-search-input');
+            const submitBtn = document.getElementById('btn-search-submit');
+            const dropdown = document.getElementById('search-results-dropdown');
+
+            function normalizeStr(str) {
+                return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            }
+
+            function renderSuggestions(query) {
+                const q = normalizeStr(query.trim());
+                if (!q) {
+                    dropdown.classList.add('hidden');
+                    dropdown.innerHTML = '';
+                    return;
+                }
+
+                const matchedStates = BRAZIL_STATES.filter(st =>
+                    normalizeStr(st.name).includes(q) || normalizeStr(st.uf) === q
+                ).slice(0, 4);
+
+                const matchedCities = cityLabelItems.filter(c =>
+                    normalizeStr(c.name).includes(q) ||
+                    normalizeStr(`${c.name} ${c.state}`).includes(q)
+                ).slice(0, 8);
+
+                dropdown.innerHTML = '';
+
+                matchedStates.forEach(st => {
+                    const btn = document.createElement('button');
+                    btn.className = 'w-full text-left px-3 py-2 text-xs hover:bg-white/10 rounded-xl flex items-center justify-between transition';
+                    btn.innerHTML = `
+                        <div>
+                            <span class="font-semibold">${st.name} (${st.uf})</span>
+                            <span class="block text-[10px] opacity-60">Estado / UF • Brasil</span>
+                        </div>
+                        <span class="font-mono-tech text-[10px] px-1.5 py-0.5 rounded border border-current/30">ESTADO</span>
+                    `;
+                    btn.addEventListener('click', () => {
+                        dropdown.classList.add('hidden');
+                        input.value = `${st.name} (${st.uf})`;
+                        focusLocation(st.lat, st.lon, `Estado: ${st.name} (${st.uf})`, 132);
+                    });
+                    dropdown.appendChild(btn);
+                });
+
+                matchedCities.forEach(c => {
+                    const btn = document.createElement('button');
+                    btn.className = 'w-full text-left px-3 py-2 text-xs hover:bg-white/10 rounded-xl flex items-center justify-between transition';
+                    btn.innerHTML = `
+                        <div>
+                            <span class="font-semibold">${c.name}${c.state ? ', ' + c.state : ''}</span>
+                            <span class="block text-[10px] opacity-60">${c.country}</span>
+                        </div>
+                        <span class="font-mono-tech text-[10px] opacity-70">${formatLatLon(c.lat, c.lon)}</span>
+                    `;
+                    btn.addEventListener('click', () => {
+                        dropdown.classList.add('hidden');
+                        input.value = `${c.name}${c.state ? ', ' + c.state : ''}`;
+                        const zoomTarget = c.tier === 1 ? 136 : (c.tier === 2 ? 124 : 114);
+                        focusLocation(c.lat, c.lon, `${c.name}${c.state ? ', ' + c.state : ''} • ${c.country}`, zoomTarget);
+                    });
+                    dropdown.appendChild(btn);
+                });
+
+                // Botão para buscar qualquer município ou cidade no banco mundial OpenStreetMap
+                const onlineBtn = document.createElement('button');
+                onlineBtn.className = 'w-full text-left px-3 py-2 text-xs hover:bg-white/15 rounded-xl flex items-center justify-between font-mono-tech';
+                onlineBtn.innerHTML = `
+                    <span>Buscar "${query.trim()}" no mapa mundial...</span>
+                    <span class="text-[10px] underline"> ENTER ↵</span>
+                `;
+                onlineBtn.addEventListener('click', () => {
+                    searchNominatimWorldwide(query.trim());
+                });
+                dropdown.appendChild(onlineBtn);
+
+                dropdown.classList.remove('hidden');
+            }
+
+            async function searchNominatimWorldwide(query) {
+                if (!query) return;
+                dropdown.classList.remove('hidden');
+                dropdown.innerHTML = `<div class="px-3 py-3 text-xs font-mono-tech opacity-75">Buscando "${query}" via satélite / Nominatim...</div>`;
+
+                try {
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&accept-language=pt-BR`;
+                    const res = await fetch(url);
+                    const results = await res.json();
+
+                    dropdown.innerHTML = '';
+                    if (!results || results.length === 0) {
+                        dropdown.innerHTML = `<div class="px-3 py-2.5 text-xs opacity-70">Nenhuma cidade ou estado encontrado para "${query}".</div>`;
+                        return;
+                    }
+
+                    results.forEach(item => {
+                        const lat = parseFloat(item.lat);
+                        const lon = parseFloat(item.lon);
+                        const name = item.name || item.display_name.split(',')[0];
+                        const stateName = item.address?.state || item.address?.ISO3166_2_lvl4 || '';
+                        const countryName = item.address?.country || '';
+
+                        const btn = document.createElement('button');
+                        btn.className = 'w-full text-left px-3 py-2 text-xs hover:bg-white/10 rounded-xl flex items-center justify-between transition';
+                        btn.innerHTML = `
+                            <div class="pr-2">
+                                <span class="font-semibold block">${name}${stateName ? ', ' + stateName : ''}</span>
+                                <span class="block text-[10px] opacity-60 truncate max-w-[230px]">${item.display_name}</span>
+                            </div>
+                            <span class="font-mono-tech text-[10px] opacity-75 flex-shrink-0">VOAR ↵</span>
+                        `;
+                        btn.addEventListener('click', () => {
+                            dropdown.classList.add('hidden');
+                            input.value = `${name}${stateName ? ', ' + stateName : ''}`;
+
+                            // Adiciona marcador permanente no globo para a cidade pesquisada
+                            addCityToGlobe({
+                                name,
+                                state: stateName,
+                                country: countryName,
+                                lat,
+                                lon,
+                                tier: 1
+                            }, true);
+
+                            focusLocation(lat, lon, `${name}${stateName ? ', ' + stateName : ''} • ${countryName}`, 115);
+                        });
+                        dropdown.appendChild(btn);
+                    });
+                } catch (err) {
+                    dropdown.innerHTML = `<div class="px-3 py-2.5 text-xs opacity-70">Erro ao consultar serviço de busca online.</div>`;
+                }
+            }
+
+            input.addEventListener('input', (e) => renderSuggestions(e.target.value));
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchNominatimWorldwide(input.value.trim());
+                } else if (e.key === 'Escape') {
+                    dropdown.classList.add('hidden');
+                }
+            });
+            submitBtn.addEventListener('click', () => searchNominatimWorldwide(input.value.trim()));
+
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#city-search-input') && !e.target.closest('#search-results-dropdown') && !e.target.closest('#btn-search-submit')) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+        }
+
+        // --- CONTROLES DE CAMADAS (PAÍSES, ESTADOS, SIGLAS, CIDADES, LOD, GRADE) ---
+        function setupLayerToggles() {
+            function bindToggle(btnId, stateKey, onToggle) {
+                const btn = document.getElementById(btnId);
+                if (!btn) return;
+                btn.addEventListener('click', () => {
+                    state[stateKey] = !state[stateKey];
+                    btn.classList.toggle('active', state[stateKey]);
+                    const statusSpan = btn.querySelector('span:last-child');
+                    if (statusSpan && (statusSpan.textContent === 'ON' || statusSpan.textContent === 'OFF')) {
+                        statusSpan.textContent = state[stateKey] ? 'ON' : 'OFF';
+                    }
+                    if (onToggle) onToggle(state[stateKey]);
+                });
+            }
+
+            bindToggle('toggle-countries', 'showCountries', (val) => {
+                if (borderLines) borderLines.visible = val;
+                if (state.worldData && state.styleMode !== 1) renderGeoTextureFromTopology(state.worldData);
+            });
+
+            bindToggle('toggle-states', 'showStates', (val) => {
+                if (stateBorderLines) stateBorderLines.visible = val;
+                if (state.worldData && state.styleMode !== 1) renderGeoTextureFromTopology(state.worldData);
+            });
+
+            bindToggle('toggle-state-labels', 'showStateLabels');
+
+            bindToggle('toggle-cities', 'showCities', (val) => {
+                if (markerGroup) markerGroup.visible = val;
+            });
+
+            const lodBtn = document.getElementById('toggle-city-lod');
+            const mobileAllBtn = document.getElementById('btn-mobile-all-cities');
+
+            function toggleAllCitiesMode() {
+                state.showAllCities = !state.showAllCities;
+                if (lodBtn) {
+                    lodBtn.classList.toggle('active', state.showAllCities);
+                    document.getElementById('city-lod-label').textContent = state.showAllCities ? 'TODAS' : 'AUTO ZOOM';
+                }
+                if (mobileAllBtn) {
+                    mobileAllBtn.classList.toggle('active', state.showAllCities);
+                }
+                updateZoomHUD();
+                showToast(state.showAllCities ? 'Exibindo todas as cidades (Tier 1, 2 e 3)' : 'Detalhe de cidades automático conforme o Zoom');
+            }
+
+            if (lodBtn) lodBtn.addEventListener('click', toggleAllCitiesMode);
+            if (mobileAllBtn) mobileAllBtn.addEventListener('click', toggleAllCitiesMode);
+
+            bindToggle('toggle-graticule', 'showGraticule', (val) => {
+                if (graticuleLines) graticuleLines.visible = val;
+            });
+        }
+
+        // --- CONFIGURAR EVENTOS DE INTERAÇÃO (MOUSE, TOQUE, RODA DE ZOOM E BOTÕES) ---
+        function setupEventListeners() {
+            const container = document.getElementById('canvas-container');
+            let pointerDownPos = { x: 0, y: 0 };
+
+            
+        container.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(earthMesh);
+            if (intersects.length > 0) {
+                const hitPointWorld = intersects[0].point.clone();
+                const hitPointLocal = globeGroup.worldToLocal(hitPointWorld);
+                const { lat, lon } = vector3ToLatLon(hitPointLocal);
+                
+                // Envia as coordenadas para a página principal (RPG)
+                window.parent.postMessage({ type: 'CREATE_MISSION', lat: lat, lon: lon }, '*');
+            }
+        });
+
+        container.addEventListener('mousedown', (e) => {
+                state.isDragging = true;
+                state.previousMousePosition = { x: e.clientX, y: e.clientY };
+                pointerDownPos = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (state.isDragging) {
+                    const deltaX = e.clientX - state.previousMousePosition.x;
+                    const deltaY = e.clientY - state.previousMousePosition.y;
+
+                    // Sensibilidade dinâmica: muito mais fina e precisa quando próximo à superfície
+                    const altitudeRatio = Math.max(0.08, (state.cameraDistance - GLOBE_RADIUS) / (DEFAULT_DISTANCE - GLOBE_RADIUS));
+                    const sensitivity = 0.0042 * altitudeRatio;
+
+                    state.targetRotY += deltaX * sensitivity;
+                    state.targetRotX += deltaY * sensitivity;
+                    state.targetRotX = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, state.targetRotX));
+
+                    state.previousMousePosition = { x: e.clientX, y: e.clientY };
+                } else {
+                    inspectGlobeAtScreenPos(e.clientX, e.clientY, false);
+                }
+            });
+
+            window.addEventListener('mouseup', (e) => {
+                if (!state.isDragging) return;
+                state.isDragging = false;
+
+                const moveDist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+                if (moveDist < 5 && e.target === renderer.domElement) {
+                    inspectGlobeAtScreenPos(e.clientX, e.clientY, true);
+                }
+            });
+
+            // Scroll Wheel com passo adaptativo (mais suave perto da superfície)
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const altitude = Math.max(8, state.targetDistance - GLOBE_RADIUS);
+                const dynamicStep = e.deltaY * (altitude * 0.0014);
+                state.targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, state.targetDistance + dynamicStep));
+                updateZoomHUD();
+            }, { passive: false });
+
+            // Toque Mobile
+            container.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    state.isDragging = true;
+                    state.previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    pointerDownPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                } else if (e.touches.length === 2) {
+                    state.isDragging = false;
+                    state.pinchStartDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                }
+            }, { passive: true });
+
+            container.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (e.touches.length === 1 && state.isDragging) {
+                    const deltaX = e.touches[0].clientX - state.previousMousePosition.x;
+                    const deltaY = e.touches[0].clientY - state.previousMousePosition.y;
+
+                    const altitudeRatio = Math.max(0.08, (state.cameraDistance - GLOBE_RADIUS) / (DEFAULT_DISTANCE - GLOBE_RADIUS));
+                    const sensitivity = 0.0046 * altitudeRatio;
+
+                    state.targetRotY += deltaX * sensitivity;
+                    state.targetRotX += deltaY * sensitivity;
+                    state.targetRotX = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, state.targetRotX));
+
+                    state.previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                } else if (e.touches.length === 2) {
+                    const currentDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    const diff = state.pinchStartDist - currentDist;
+                    const altitude = Math.max(8, state.targetDistance - GLOBE_RADIUS);
+                    state.targetDistance = Math.max(MIN_DISTANCE, Math.min(MAX_DISTANCE, state.targetDistance + diff * (altitude * 0.0045)));
+                    state.pinchStartDist = currentDist;
+                    updateZoomHUD();
+                }
+            }, { passive: false });
+
+            container.addEventListener('touchend', () => {
+                state.isDragging = false;
+            });
+
+            // Botões da Interface
+            document.getElementById('btn-zoom-in').addEventListener('click', () => {
+                const step = Math.max(6, (state.targetDistance - GLOBE_RADIUS) * 0.25);
+                state.targetDistance = Math.max(MIN_DISTANCE, state.targetDistance - step);
+                updateZoomHUD();
+            });
+
+            document.getElementById('btn-zoom-out').addEventListener('click', () => {
+                const step = Math.max(10, (state.targetDistance - GLOBE_RADIUS) * 0.32);
+                state.targetDistance = Math.min(MAX_DISTANCE, state.targetDistance + step);
+                updateZoomHUD();
+            });
+
+            document.getElementById('zoom-slider').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value) / 100;
+                state.targetDistance = MAX_DISTANCE - val * (MAX_DISTANCE - MIN_DISTANCE);
+                updateZoomHUD();
+            });
+
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                state.targetDistance = DEFAULT_DISTANCE;
+                state.targetRotX = -0.28;
+                state.targetRotY = -0.74;
+                state.autoRotate = false;
+                updateAutoRotateButton();
+                updateZoomHUD();
+                showToast('Visão centrada na América do Sul / Brasil');
+            });
+
+            document.getElementById('btn-autorotate').addEventListener('click', () => {
+                state.autoRotate = !state.autoRotate;
+                updateAutoRotateButton();
+            });
+
+            document.getElementById('btn-wireframe').addEventListener('click', () => {
+                state.styleMode = (state.styleMode + 1) % 3;
+                const labels = ['Estilo: Sólido + Vetor', 'Estilo: Vetor 3D Puro', 'Estilo: Pontilhado'];
+                const badges = ['VETORIAL HD', 'MALHA 3D', 'HALFTONE'];
+                document.getElementById('wireframe-label').textContent = labels[state.styleMode];
+                document.getElementById('status-badge').textContent = badges[state.styleMode];
+                applyVisualTheme();
+            });
+
+            document.getElementById('btn-invert').addEventListener('click', (e) => {
+                state.inverted = !state.inverted;
+                e.currentTarget.classList.toggle('active', state.inverted);
+                applyVisualTheme();
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // --- INSPECIONAR COORDENADA E IDENTIFICAR CIDADE/ESTADO AO CLICAR (GEOCODIFICAÇÃO REVERSA) ---
+        async function inspectGlobeAtScreenPos(clientX, clientY, placePin) {
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(earthMesh);
+
+            if (intersects.length > 0) {
+                const hitPointWorld = intersects[0].point.clone();
+                const hitPointLocal = globeGroup.worldToLocal(hitPointWorld);
+                const { lat, lon } = vector3ToLatLon(hitPointLocal);
+
+                updateCoordsHUD(lat, lon);
+
+                if (placePin) {
+                    // placeSelectionPin(lat, lon); // PIN DESATIVADO
+
+                    const nearestLabel = findNearestLocalPlace(lat, lon);
+                    showToast(`Inspecionando: ${nearestLabel} (${formatLatLon(lat, lon)})`);
+
+                    // Consulta reversa Nominatim para obter o Município e Estado exatos onde o usuário clicou
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&accept-language=pt-BR`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data && data.address) {
+                                const city = data.address.city || data.address.town || data.address.municipality || data.address.village || data.address.state_district || '';
+                                const st = data.address.state || '';
+                                const country = data.address.country || '';
+                                const parts = [city, st, country].filter(Boolean);
+                                if (parts.length > 0) {
+                                    const fullLabel = parts.join(', ');
+                                    document.getElementById('hud-place-name').textContent = fullLabel;
+                                    showToast(`Local: ${fullLabel}`);
+                                }
+                            }
+                        }
+                    } catch (_) {}
+                }
+            }
+        }
+
+        // --- ATUALIZAR PROJEÇÃO 2D DOS RÓTULOS DE ESTADOS E CIDADES COM OCLUSÃO E NÍVEL DE DETALHE (LOD) ---
+        
+        
+        // --- SISTEMA DE MISSÕES INTEGRADO ---
+        let globalMissions = [];
+        const missionLabels = [];
+
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'SET_MISSIONS') {
+                globalMissions = event.data.missions;
+                renderMissionsOnGlobe();
+            }
+        });
+
+        function renderMissionsOnGlobe() {
+            const container = document.getElementById('labels-container');
+            
+            // Remove marcadores antigos
+            missionLabels.forEach(m => m.el.remove());
+            missionLabels.length = 0;
+
+            globalMissions.forEach(missao => {
+                if (!missao.coordenadas || missao.coordenadas.length < 2) return;
+
+                const el = document.createElement('div');
+                el.className = 'mission-marker';
+                
+                // Define cor conforme a ameaça
+                let cor = '#00aaff'; // MÉDIA
+                if (missao.ameaca === 'ALTA') cor = '#ffb000';
+                if (missao.ameaca === 'CRÍTICA') cor = '#ff3333';
+                if (missao.status === 'CONCLUÍDA') cor = '#42ff42';
+                
+                el.style.backgroundColor = cor;
+                el.style.color = cor;
+                el.title = missao.titulo || 'Missão';
+
+                // Clique na missão
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    window.parent.postMessage({ type: 'OPEN_MISSION', cod: missao.cod }, '*');
+                });
+
+                container.appendChild(el);
+
+                missionLabels.push({
+                    lat: missao.coordenadas[0],
+                    lon: missao.coordenadas[1],
+                    el: el,
+                    localVec: latLonToVector3(missao.coordenadas[0], missao.coordenadas[1], GLOBE_RADIUS * 1.007)
+                });
+            });
+        }
+
+        function updateProjectedLabels() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const halfW = width / 2;
+            const halfH = height / 2;
+            const dist = state.cameraDistance;
+
+            _camToGlobeDir.copy(camera.position).normalize();
+
+            // 1. Rótulos de Siglas de Estados (visíveis quando a camada está ativa e o zoom é <= 250)
+            const statesVisibleByZoom = state.showStates && state.showStateLabels && dist <= 255;
+
+            for (let i = 0; i < stateLabelItems.length; i++) {
+                const item = stateLabelItems[i];
+                if (!statesVisibleByZoom) {
+                    item.el.style.display = 'none';
+                    continue;
+                }
+
+                _tempWorldPos.copy(item.localVec).applyMatrix4(globeGroup.matrixWorld);
+                _tempNormal.copy(_tempWorldPos).normalize();
+
+                // Teste de oclusão do horizonte (evita exibir rótulos na face oculta do planeta)
+                const dot = _tempNormal.dot(_camToGlobeDir);
+                if (dot < 0.25) {
+                    item.el.style.display = 'none';
+                    continue;
+                }
+
+                _tempWorldPos.project(camera);
+                const x = (_tempWorldPos.x * halfW) + halfW;
+                const y = -(_tempWorldPos.y * halfH) + halfH;
+
+                item.el.style.display = 'block';
+                item.el.style.transform = `translate(-50%, -50%) translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+                item.el.style.opacity = Math.min(1, (dot - 0.25) * 3).toFixed(2);
+            }
+
+            // 2. Rótulos de Cidades com Nível de Detalhe (Tier 1, Tier 2, Tier 3) e anti-colisão básica
+            const occupiedBoxes = [];
+
+            for (let i = 0; i < cityLabelItems.length; i++) {
+                const item = cityLabelItems[i];
+
+                if (!state.showCities) {
+                    item.el.style.display = 'none';
+                    if (item.meshDot) item.meshDot.visible = false;
+                    continue;
+                }
+
+                // Verifica se o Tier da cidade deve aparecer na distância de câmera atual
+                let tierAllowed = state.showAllCities || item.isCustom;
+                if (!tierAllowed) {
+                    if (item.tier === 1) tierAllowed = true;
+                    else if (item.tier === 2 && dist <= 240) tierAllowed = true;
+                    else if (item.tier === 3 && dist <= 165) tierAllowed = true;
+                }
+
+                if (!tierAllowed) {
+                    item.el.style.display = 'none';
+                    if (item.meshDot) item.meshDot.visible = false;
+                    continue;
+                }
+
+                if (item.meshDot) item.meshDot.visible = true;
+
+                _tempWorldPos.copy(item.localVec).applyMatrix4(globeGroup.matrixWorld);
+                _tempNormal.copy(_tempWorldPos).normalize();
+
+                const dot = _tempNormal.dot(_camToGlobeDir);
+                const horizonThreshold = dist < 140 ? 0.14 : 0.22;
+
+                if (dot < horizonThreshold) {
+                    item.el.style.display = 'none';
+                    continue;
+                }
+
+                _tempWorldPos.project(camera);
+                const x = (_tempWorldPos.x * halfW) + halfW;
+                const y = -(_tempWorldPos.y * halfH) + halfH;
+
+                if (x < 20 || x > width - 20 || y < 20 || y > height - 20) {
+                    item.el.style.display = 'none';
+                    continue;
+                }
+
+                // Filtro leve de sobreposição para manter a leitura limpa (exceto quando muito próximo ou pino customizado)
+                if (!item.isCustom && dist > 125) {
+                    const boxW = item.tier === 1 ? 68 : 54;
+                    const boxH = 16;
+                    let overlaps = false;
+                    for (let j = 0; j < occupiedBoxes.length; j++) {
+                        const b = occupiedBoxes[j];
+                        if (Math.abs(x - b.x) < boxW && Math.abs(y - b.y) < boxH) {
+                            overlaps = true;
+                            break;
+                        }
+                    }
+                    if (overlaps) {
+                        item.el.style.display = 'none';
+                        continue;
+                    }
+                    occupiedBoxes.push({ x, y });
+                }
+
+                item.el.style.display = 'inline-flex';
+                item.el.style.transform = `translate(6px, -50%) translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+                item.el.style.opacity = Math.min(1, (dot - horizonThreshold) * 3.5).toFixed(2);
+            }
+        
+            // 3. Rótulos de Missões
+            for (let i = 0; i < missionLabels.length; i++) {
+                const item = missionLabels[i];
+                
+                _tempWorldPos.copy(item.localVec).applyMatrix4(globeGroup.matrixWorld);
+                _tempNormal.copy(_tempWorldPos).normalize();
+                const dot = _tempNormal.dot(_camToGlobeDir);
+
+                if (dot < 0.25) {
+                    item.el.style.display = 'none';
+                    continue;
+                }
+
+                _tempWorldPos.project(camera);
+                const x = (_tempWorldPos.x * halfW) + halfW;
+                const y = -(_tempWorldPos.y * halfH) + halfH;
+
+                if (x < 0 || x > width || y < 0 || y > height) {
+                    item.el.style.display = 'none';
+                    continue;
+                }
+
+                item.el.style.display = 'block';
+                item.el.style.transform = `translate(-50%, -50%) translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+                item.el.style.opacity = Math.min(1, (dot - 0.25) * 3).toFixed(2);
+            }
+        }
+
+
+        // --- LOOP DE ANIMAÇÃO E FÍSICA ORBITAL SUAVE (DAMPING) ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (state.autoRotate && !state.isDragging) {
+                state.targetRotY += state.autoRotateSpeed;
+            }
+
+            state.rotX += (state.targetRotX - state.rotX) * 0.09;
+            state.rotY += (state.targetRotY - state.rotY) * 0.09;
+            state.cameraDistance += (state.targetDistance - state.cameraDistance) * 0.11;
+
+            globeGroup.rotation.x = state.rotX;
+            globeGroup.rotation.y = state.rotY;
+
+            camera.position.z = state.cameraDistance;
+
+            // Escala o pino de seleção proporcionalmente ao zoom para não ficar gigante ao aproximar
+            if (selectionPinMesh && selectionPinMesh.parentGroup) {
+                const pinScale = Math.max(0.22, (state.cameraDistance - GLOBE_RADIUS) / 120);
+                selectionPinMesh.parentGroup.scale.setScalar(pinScale);
+            }
+
+            if (starField) {
+                starField.rotation.y = state.rotY * 0.12;
+                starField.rotation.x = state.rotX * 0.12;
+            }
+
+            globeGroup.updateMatrixWorld();
+            updateProjectedLabels();
+
+            renderer.render(scene, camera);
+        }
+
+        // Inicializa o Globo 3D assim que a janela carregar
+        window.onload = function () {
+            init();
+            animate();
+        };
+    </script>
+</body>
+</html>
