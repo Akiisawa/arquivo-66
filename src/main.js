@@ -7,7 +7,17 @@ initCodeRain();
 initNotificationsModule();
 initAgentsModule();
 
-console.log('[ARQUIVO 66] Vite e Módulos Iniciados.');
+console.log('[ARQUIVO 66] Sistema principal carregado.');
+
+// Garante que a chuva de código pode ser parada
+window.pararChuvaCodigo = function() {
+    const c = document.getElementById('chuva-codigo');
+    if(c) c.style.display = 'none';
+};
+window.iniciarChuvaCodigo = function() {
+    const c = document.getElementById('chuva-codigo');
+    if(c) c.style.display = 'block';
+};
 
 // --- PONTE DO MAPA 3D ---
 let currentMissionsCache = '';
