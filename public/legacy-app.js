@@ -317,19 +317,19 @@ async function rodarBoot() {
         document.getElementById("linhas-log").innerHTML += `<div>> ${logsBoot[logIdx]}</div>`; 
         document.getElementById("progresso-fbi").style.width = ((logIdx / logsBoot.length) * 100) + "%"; 
         logIdx++; 
-        setTimeout(rodarBoot, 450);
+        setTimeout(rodarBoot, 100);
     } else if (logIdx === logsBoot.length - 1) {
         document.getElementById("linhas-log").innerHTML += `<div>> ${logsBoot[logIdx]}</div>`; 
         await carregarDadosDaNuvem(); 
         logIdx++; 
-        setTimeout(rodarBoot, 400);
+        setTimeout(rodarBoot, 100);
     } else { 
         document.getElementById("progresso-fbi").style.width = "100%"; 
         setTimeout(() => { 
             document.getElementById("tela-intro").style.display = "none"; 
             document.getElementById("tela-login").style.display = "flex"; 
             document.getElementById("login-instrucao").innerText = "SALA: " + SESSAO_ATUAL;
-        }, 500); 
+        }, 200); 
     }
 }
 
@@ -577,7 +577,7 @@ function inicializarMapa(){ if(!document.getElementById('map')) return;if(map!==
 
 function renderizarPontosNoMapa() { if(!document.getElementById('map') || typeof camadaMarcadores === 'undefined' || !camadaMarcadores) return; camadaMarcadores.clearLayers(); incidentesGoiadas.forEach((caso, index) => { var cor = 'var(--azul-seguro)'; if (caso.status === 'CONCLUÍDA') cor = 'var(--verde-terminal)'; else if (caso.ameaca === 'ALTA') cor = 'var(--amber-alert)'; else if (caso.ameaca === 'CRÍTICA') cor = 'var(--vermelho-critica)'; var divClass = index === indexItemSelecionado ? "marker-pisca" : ""; var boxShad = index === indexItemSelecionado ? "none" : `0 0 10px ${cor}`; var fbiIcon = L.divIcon({ className: 'custom-fbi-marker', html: `<div class="${divClass}" style="width:12px; height:12px; background:${cor}; border-radius:50%; box-shadow: ${boxShad};"></div>`, iconSize: [12, 12] }); var marker = L.marker(caso.coordenadas, { icon: fbiIcon }); marker.on('click', () => { indexItemSelecionado = index; map.flyTo(caso.coordenadas, 12, { duration: 1.5 }); renderizarPontosNoMapa(); mostrarDossieJanela(caso); }); camadaMarcadores.addLayer(marker); }); }
 
-function fecharModal() { modalDinamico.style.display = 'none'; if(typeof tempMarker !== 'undefined' && tempMarker && typeof map !== 'undefined' && map) { map.removeLayer(tempMarker); tempMarker = null; } indexItemSelecionado = null; if(document.getElementById('aba-mapa').style.display !== 'none') renderizarPontosNoMapa(); }
+function fecharModal() { modalDinamico.style.display = 'none'; if(window.tempMarker && typeof window.map !== 'undefined' && window.map) { window.map.removeLayer(window.tempMarker); window.tempMarker = null; } indexItemSelecionado = null; if(document.getElementById('aba-mapa').style.display !== 'none') renderizarPontosNoMapa(); }
 
 function lidarComUploadMidia(event){var file=event.target.files[0];if(!file)return;var preview=document.getElementById('preview-upload');var reader=new FileReader();reader.onload=e=>{if(file.type.startsWith('video/')){window.base64TempMedia=e.target.result;if(preview)preview.innerHTML=`<span style="color:var(--amber-alert)">Vídeo carregado.</span>`;return;}var img=new Image();img.onload=()=>{var canvas=document.createElement('canvas');var MAX=800;var w=img.width,h=img.height;if(w>h&&w>MAX){h*=MAX/w;w=MAX}else if(h>MAX){w*=MAX/h;h=MAX}canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);window.base64TempMedia=canvas.toDataURL('image/jpeg',0.7);if(preview)preview.innerHTML=`<img src="${window.base64TempMedia}" style="max-width:100%;border:1px solid #333;border-radius:6px;">`;};img.src=e.target.result};reader.readAsDataURL(file);}
 function renderizarMidia(base64Str) { if(!base64Str) return ''; if(base64Str.startsWith('data:video')) return `<video controls class="img-missao"><source src="${base64Str}"></video>`; return `<img src="${base64Str}" class="img-missao">`; }
@@ -1253,3 +1253,84 @@ window.aceitarSolicitacaoItem=function(idx,nomeAgente){var modal=document.getEle
 window.confirmarTransferenciaItem=function(idx,nomeAgente,status){var modal=document.getElementById('modal-dinamico');modal.classList.remove('modal-transferencia');bancoInventario[idx].portador=nomeAgente;bancoInventario[idx].status=status;bancoInventario[idx].localizacao=status==='RESERVADO'?'Reservado para '+nomeAgente:'Em posse de '+nomeAgente;bancoInventario[idx].solicitantes=[];if(typeof salvarBancos==='function')salvarBancos();if(typeof renderInventario==='function')renderInventario();if(typeof renderizarAgentes==='function')renderizarAgentes();modal.style.display='none';if(typeof mostrarSysToast==='function')mostrarSysToast('TRANSFERÊNCIA AUTORIZADA.');if(typeof somSucesso==='function')somSucesso();};
 
 window.gerarHtmlInventarioDoAgente=function(nomeDoAgente){if(typeof bancoInventario==='undefined')return'';var itensDoAgente=bancoInventario.filter(item=>item.portador===nomeDoAgente);if(itensDoAgente.length===0)return`<div style="padding:10px;border:1px dashed #333;color:#666;text-align:center;font-size:.8rem;margin-top:10px;">NENHUM EQUIPAMENTO VINCULADO</div>`;var html=`<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">`;itensDoAgente.forEach(item=>{var itemAtual=window.bancoInventario.find(i=>i.idOperacional===item.idOperacional)||item;var corElem=window.getCorElementoInventario(itemAtual.elemento);var brilho=itemAtual.elemento!=='NEUTRO'?`box-shadow:0 0 10px ${corElem};`:``;var statusInfo=window.getCorStatusInventario(itemAtual.status);html+=`<div style="border:1px solid var(--borda-fbi);border-left:4px solid ${corElem};padding:10px;background:rgba(14,19,25,.8);${brilho}cursor:pointer;transition:.15s;" onclick="window.abrirDossieItem(window.bancoInventario.findIndex(i=>i.idOperacional==='${itemAtual.idOperacional}'))" onmouseenter="this.style.transform='translateX(3px)'" onmouseleave="this.style.transform='translateX(0)'"><div style="display:flex;justify-content:space-between;align-items:center;"><strong style="color:#fff;font-size:.9rem;letter-spacing:1px;">${itemAtual.nome}<span style="color:var(--fbi-text);font-size:.7rem;"> (x${itemAtual.quantidade})</span></strong>${itemAtual.danoEfeito?`<span style="background:var(--vermelho-critica);color:#fff;padding:2px 6px;border-radius:3px;font-size:.7rem;font-weight:bold;">${itemAtual.danoEfeito}</span>`:''}</div><div style="display:flex;justify-content:space-between;margin-top:5px;font-size:.7rem;color:#888;"><span>[${itemAtual.categoria}]</span><span style="color:${statusInfo.cor};font-weight:700;">${itemAtual.status}</span></div></div>`});html+=`</div>`;return html;};
+// ==========================================
+// PATCH DEFINITIVO: TECLADO FÍSICO E ENTER
+// ==========================================
+window.iniciarLogin = function() {
+    document.getElementById('perfis-botoes').style.display = 'none';
+    document.getElementById('login-processo').style.display = 'flex';
+    var input = document.getElementById('agente-id-input');
+    input.style.display = 'block'; 
+    input.value = '';
+    input.focus();
+    document.getElementById('pinpad-container').style.display = 'none'; 
+    document.getElementById('login-instrucao').innerText = ""; 
+    
+    input.onkeydown = function(e) { 
+        if(e.key === 'Enter') { 
+            e.preventDefault();
+            e.stopPropagation(); // Impede o Enter de vazar para a tela de senha
+            
+            window.pinProcesso.id = this.value.toUpperCase().trim(); 
+            if(window.pinProcesso.id === '') return; 
+            
+            this.style.display = 'none'; 
+            document.getElementById('pinpad-container').style.display = 'block'; 
+            window.pinProcesso.pin = '';
+            var display = document.getElementById('pin-display');
+            if(display) { display.value = ''; display.focus(); }
+        } 
+    }; 
+};
+
+document.addEventListener('keydown', function(e) {
+    var pinPad = document.getElementById('pinpad-container');
+    var idInput = document.getElementById('agente-id-input');
+    
+    if (pinPad && pinPad.style.display === 'block' && (!idInput || idInput.style.display === 'none')) {
+        if (e.key >= '0' && e.key <= '9') {
+            if (typeof window.digitarPin === 'function') window.digitarPin(e.key);
+        } else if (e.key === 'Backspace') {
+            if (window.pinProcesso) {
+                window.pinProcesso.pin = window.pinProcesso.pin.slice(0, -1);
+                var display = document.getElementById('pin-display');
+                if (display) display.value = window.pinProcesso.pin.replace(/./g, '*');
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (window.pinProcesso.pin.length === 6) {
+                if (typeof window.validarLogin === 'function') window.validarLogin();
+            } else {
+                if (window.mostrarSysToast) window.mostrarSysToast("DIGITE OS 6 DÍGITOS.", true);
+            }
+        } else if (e.key === 'Escape') {
+            if (typeof window.cancelarLogin === 'function') window.cancelarLogin();
+        }
+    }
+});
+
+// ==========================================
+// BLINDAGEM GLOBAL (Evita 'is not defined')
+// ==========================================
+if (typeof toggleChatWindow !== 'undefined') window.toggleChatWindow = toggleChatWindow;
+if (typeof carregarDadosDaNuvem !== 'undefined') window.carregarDadosDaNuvem = carregarDadosDaNuvem;
+if (typeof validarLogin !== 'undefined') window.validarLogin = validarLogin;
+if (typeof digitarPin !== 'undefined') window.digitarPin = digitarPin;
+if (typeof iniciarLogin !== 'undefined') window.iniciarLogin = iniciarLogin;
+if (typeof abrirFormularioAgente !== 'undefined') window.abrirFormularioAgente = abrirFormularioAgente;
+if (typeof abrirFormularioArquivo !== 'undefined') window.abrirFormularioArquivo = abrirFormularioArquivo;
+if (typeof abrirFormularioEntidade !== 'undefined') window.abrirFormularioEntidade = abrirFormularioEntidade;
+if (typeof abrirFormularioRelatorio !== 'undefined') window.abrirFormularioRelatorio = abrirFormularioRelatorio;
+if (typeof abrirFormularioUsuario !== 'undefined') window.abrirFormularioUsuario = abrirFormularioUsuario;
+if (typeof abrirFormularioInventario !== 'undefined') window.abrirFormularioInventario = abrirFormularioInventario;
+if (typeof renderizarAgentes !== 'undefined') window.renderizarAgentes = renderizarAgentes;
+if (typeof renderizarPerfil !== 'undefined') window.renderizarPerfil = renderizarPerfil;
+if (typeof renderEntidades !== 'undefined') window.renderEntidades = renderEntidades;
+if (typeof renderArquivos !== 'undefined') window.renderArquivos = renderArquivos;
+if (typeof renderRelatorios !== 'undefined') window.renderRelatorios = renderRelatorios;
+if (typeof renderUsuarios !== 'undefined') window.renderUsuarios = renderUsuarios;
+if (typeof renderInventario !== 'undefined') window.renderInventario = renderInventario;
+if (typeof salvarBancos !== 'undefined') window.salvarBancos = salvarBancos;
+if (typeof fecharModal !== 'undefined') window.fecharModal = fecharModal;
+if (typeof posicionarModalCentro !== 'undefined') window.posicionarModalCentro = posicionarModalCentro;
+if (typeof mostrarDossieJanela !== 'undefined') window.mostrarDossieJanela = mostrarDossieJanela;
